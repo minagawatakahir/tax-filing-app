@@ -35,6 +35,7 @@ import realEstateRoutes from './routes/realEstateRoutes';
 import depreciationRoutes from './routes/depreciationRoutes';
 import taxExemptionRoutes from './routes/taxExemptionRoutes';
 import documentRoutes from './routes/documentRoutes';
+import propertyRoutes from './routes/propertyRoutes';
 
 // ルートの登録
 app.use('/api/tax', taxRoutes);
@@ -43,6 +44,7 @@ app.use('/api/real-estate', realEstateRoutes);
 app.use('/api/depreciation', depreciationRoutes);
 app.use('/api/tax-exemption', taxExemptionRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/properties', propertyRoutes);
 
 // エラーハンドリング
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
