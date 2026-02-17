@@ -10,6 +10,11 @@ export interface IProperty extends Document {
   acquisitionDate: Date;
   acquisitionCost: number;
   category: 'residential' | 'commercial' | 'land';
+  // ローン関連情報
+  outstandingLoan?: number; // 現在のローン残高
+  annualInterest?: number; // 年間利息
+  loanStartDate?: Date; // ローン開始日
+  purpose?: 'residential' | 'investment' | 'business'; // ローン用途
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +58,22 @@ const PropertySchema: Schema = new Schema(
       type: String,
       enum: ['residential', 'commercial', 'land'],
       required: true,
+    },
+    // ローン関連情報
+    outstandingLoan: {
+      type: Number,
+      default: 0,
+    },
+    annualInterest: {
+      type: Number,
+      default: 0,
+    },
+    loanStartDate: {
+      type: Date,
+    },
+    purpose: {
+      type: String,
+      enum: ['residential', 'investment', 'business'],
     },
   },
   {
