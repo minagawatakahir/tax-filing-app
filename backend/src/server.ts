@@ -36,9 +36,11 @@ import depreciationRoutes from './routes/depreciationRoutes';
 import taxExemptionRoutes from './routes/taxExemptionRoutes';
 import documentRoutes from './routes/documentRoutes';
 import propertyRoutes from './routes/propertyRoutes';
+import salaryIncomeRoutes from './routes/salaryIncomeRoutes';
 
 // ルートの登録
 app.use('/api/tax', taxRoutes);
+app.use('/api/salary-income', salaryIncomeRoutes);
 app.use('/api/rsu', rsuRoutes);
 app.use('/api/real-estate', realEstateRoutes);
 app.use('/api/depreciation', depreciationRoutes);
