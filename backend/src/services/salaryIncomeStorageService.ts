@@ -1,52 +1,44 @@
-/**
- * 給与所得計算結果の保存サービス
- */
-
 import { SalaryIncomeRecord, ISalaryIncomeRecord } from '../models/SalaryIncomeRecord';
-import { SalaryIncomeInput, SalaryIncomeResult } from './salaryIncomeService';
+import { SalaryIncomeResult } from './salaryIncomeService';
 
-export interface SaveSalaryIncomeInput {
-  userId: string;
+export interface SaveSalaryIncomeRecordParams {
+  userId?: string;
   year: number;
-  input: SalaryIncomeInput;
+  input: {
+    annualSalary: number;
+    withheldTax: number;
+    socialInsurance: number;
+    lifeInsurance?: number;
+    dependents?: number;
+    spouseDeduction?: boolean;
+  };
   result: SalaryIncomeResult;
 }
 
-/**
- * 給与所得計算結果を保存
- */
 export const saveSalaryIncomeRecord = async (
-  data: SaveSalaryIncomeInput
+  params: SaveSalaryIncomeRecordParams
 ): Promise<ISalaryIncomeRecord> => {
-  const record = new SalaryIncomeRecord({
-    userId: data.userId,
-    year: data.year,
-    input: data.input,
-    result: data.result,
-  });
-
-  await record.save();
-  return record;
+  const record = new SalaryIncomeRecord(params);
+  return await record.save();
 };
 
-/**
- * ユーザーの給与所得計算履歴を取得
- */
-export const getSalaryIncomeRecords = async (
-  userId: string,
-  filters?: {
-    year?: number;
-    startDate?: Date;
-    endDate?: Date;
-  }
-): Promise<ISalaryIncomeRecord[]> => {
-  const query: any = { userId };
+export const getSalaryIncomeRecords = async (filters: {
+  userId?: string;
+  year?: number;
+  startDate?: Date;
+  endDate?: Date;
+}): Promise<ISalaryIncomeRecord[]> => {
+  const query: any = {};
 
-  if (filters?.year) {
+  if (filters.userId) {
+    query.userId = filters.userId;
+  }
+
+  if (filters.year) {
     query.year = filters.year;
   }
 
-  if (filters?.startDate || filters?.endDate) {
+  if (filters.startDate || filters.endDate) {
     query.createdAt = {};
     if (filters.startDate) {
       query.createdAt.$gte = filters.startDate;
@@ -56,36 +48,9 @@ export const getSalaryIncomeRecords = async (
     }
   }
 
-  const records = await SalaryIncomeRecord.find(query).sort({ createdAt: -1 });
-  return records;
+  return await SalaryIncomeRecord.find(query).sort({ createdAt: -1 });
 };
 
-/**
- * 給与所得計算履歴を削除
- */
-export const deleteSalaryIncomeRecord = async (
-  recordId: string,
-  userId: string
-): Promise<boolean> => {
-  const result = await SalaryIncomeRecord.deleteOne({
-    _id: recordId,
-    userId,
-  });
-
-  return result.deletedCount > 0;
-};
-
-/**
- * 給与所得計算履歴を1件取得
- */
-export const getSalaryIncomeRecordById = async (
-  recordId: string,
-  userId: string
-): Promise<ISalaryIncomeRecord | null> => {
-  const record = await SalaryIncomeRecord.findOne({
-    _id: recordId,
-    userId,
-  });
-
-  return record;
+export const deleteSalaryIncomeRecord = async (id: string): Promise<void> => {
+  await SalaryIncomeRecord.findByIdAndDelete(id);
 };

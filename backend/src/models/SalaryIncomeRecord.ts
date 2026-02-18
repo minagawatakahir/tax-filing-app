@@ -1,1 +1,53 @@
-import mongoose, { Schema, Document } from 'mongoose';\nimport { SalaryIncomeResult } from '../services/salaryIncomeService';\n\nexport interface ISalaryIncomeRecord extends Document {\n  userId: mongoose.Types.ObjectId;\n  year: number;\n  input: {\n    annualSalary: number;\n    withheldTax: number;\n    socialInsurance: number;\n    lifeInsurance?: number;\n    dependents?: number;\n    spouseDeduction?: boolean;\n  };\n  result: SalaryIncomeResult;\n  createdAt: Date;\n  updatedAt: Date;\n}\n\nconst salaryIncomeRecordSchema = new Schema<ISalaryIncomeRecord>(\n  {\n    userId: {\n      type: Schema.Types.ObjectId,\n      ref: 'User',\n      required: true,\n      index: true,\n    },\n    year: {\n      type: Number,\n      required: true,\n    },\n    input: {\n      annualSalary: {\n        type: Number,\n        required: true,\n      },\n      withheldTax: {\n        type: Number,\n        required: true,\n      },\n      socialInsurance: {\n        type: Number,\n        required: true,\n      },\n      lifeInsurance: Number,\n      dependents: Number,\n      spouseDeduction: Boolean,\n    },\n    result: {\n      annualSalary: Number,\n      salaryIncomeDeduction: Number,\n      salaryIncome: Number,\n      socialInsurance: Number,\n      lifeInsurance: Number,\n      basicDeduction: Number,\n      dependentDeduction: Number,\n      spouseDeduction: Number,\n      totalDeduction: Number,\n      taxableIncome: Number,\n      estimatedTax: Number,\n    },\n  },\n  { timestamps: true }\n);\n\n// インデックス設定\nsalaryIncomeRecordSchema.index({ userId: 1, year: 1 });\nsalaryIncomeRecordSchema.index({ userId: 1, createdAt: -1 });\n\nexport const SalaryIncomeRecord = mongoose.model<ISalaryIncomeRecord>(\n  'SalaryIncomeRecord',\n  salaryIncomeRecordSchema\n);\n
+import mongoose, { Schema, Document } from 'mongoose';
+import { SalaryIncomeResult } from '../services/salaryIncomeService';
+
+export interface ISalaryIncomeRecord extends Document {
+  userId: mongoose.Types.ObjectId;
+  year: number;
+  input: {
+    annualSalary: number;
+    withheldTax: number;
+    socialInsurance: number;
+    lifeInsurance?: number;
+    dependents?: number;
+    spouseDeduction?: boolean;
+  };
+  result: SalaryIncomeResult;
+  createdAt: Date;
+}
+
+const SalaryIncomeRecordSchema = new Schema<ISalaryIncomeRecord>(
+  {
+    userId: { type: Schema.Types.ObjectId, required: false },
+    year: { type: Number, required: true },
+    input: {
+      annualSalary: { type: Number, required: true },
+      withheldTax: { type: Number, required: true },
+      socialInsurance: { type: Number, required: true },
+      lifeInsurance: { type: Number },
+      dependents: { type: Number },
+      spouseDeduction: { type: Boolean },
+    },
+    result: {
+      annualSalary: { type: Number, required: true },
+      salaryIncomeDeduction: { type: Number, required: true },
+      salaryIncome: { type: Number, required: true },
+      socialInsurance: { type: Number, required: true },
+      lifeInsurance: { type: Number, required: true },
+      basicDeduction: { type: Number, required: true },
+      dependentDeduction: { type: Number, required: true },
+      spouseDeduction: { type: Number, required: true },
+      totalDeduction: { type: Number, required: true },
+      taxableIncome: { type: Number, required: true },
+      estimatedTax: { type: Number, required: true },
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export const SalaryIncomeRecord = mongoose.model<ISalaryIncomeRecord>(
+  'SalaryIncomeRecord',
+  SalaryIncomeRecordSchema
+);
