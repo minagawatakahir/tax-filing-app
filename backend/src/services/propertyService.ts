@@ -12,6 +12,11 @@ export interface IPropertyData {
   acquisitionCost: number;
   category: 'residential' | 'commercial' | 'land';
   propertyId?: string; // オプション（指定されない場合は自動生成）
+  // 取得関連費用
+  acquisitionTax?: number;
+  registrationTax?: number;
+  brokerFee?: number;
+  otherAcquisitionCosts?: number;
   // ローン関連情報
   outstandingLoan?: number;
   annualInterest?: number;
@@ -45,6 +50,11 @@ export const createProperty = async (propertyData: IPropertyData): Promise<any> 
     acquisitionDate: new Date(propertyData.acquisitionDate),
     acquisitionCost: propertyData.acquisitionCost,
     category: propertyData.category,
+    // 取得関連費用
+    acquisitionTax: propertyData.acquisitionTax,
+    registrationTax: propertyData.registrationTax,
+    brokerFee: propertyData.brokerFee,
+    otherAcquisitionCosts: propertyData.otherAcquisitionCosts,
     // ローン関連情報
     outstandingLoan: propertyData.outstandingLoan,
     annualInterest: propertyData.annualInterest,
