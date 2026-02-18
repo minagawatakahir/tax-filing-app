@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SalaryIncomeRecord = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const SalaryIncomeRecordSchema = new mongoose_1.Schema({
-    userId: { type: mongoose_1.Schema.Types.ObjectId, required: false },
+    userId: { type: String, required: false, default: 'demo-user' },
     year: { type: Number, required: true },
     input: {
         annualSalary: { type: Number, required: true },

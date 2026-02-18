@@ -12,6 +12,17 @@ export interface IPropertyData {
   acquisitionCost: number;
   category: 'residential' | 'commercial' | 'land';
   propertyId?: string; // オプション（指定されない場合は自動生成）
+  // ローン関連情報
+  outstandingLoan?: number;
+  annualInterest?: number;
+  loanStartDate?: string | Date;
+  purpose?: 'residential' | 'investment' | 'business';
+  // 減価償却関連情報
+  buildingStructure?: 'wood' | 'steel' | 'rc' | 'src';
+  constructionDate?: string | Date;
+  usefulLife?: number;
+  depreciationMethod?: 'straight-line' | 'declining-balance';
+  isNewProperty?: boolean;
 }
 
 /**
@@ -34,6 +45,17 @@ export const createProperty = async (propertyData: IPropertyData): Promise<any> 
     acquisitionDate: new Date(propertyData.acquisitionDate),
     acquisitionCost: propertyData.acquisitionCost,
     category: propertyData.category,
+    // ローン関連情報
+    outstandingLoan: propertyData.outstandingLoan,
+    annualInterest: propertyData.annualInterest,
+    loanStartDate: propertyData.loanStartDate ? new Date(propertyData.loanStartDate) : undefined,
+    purpose: propertyData.purpose,
+    // 減価償却関連情報
+    buildingStructure: propertyData.buildingStructure,
+    constructionDate: propertyData.constructionDate ? new Date(propertyData.constructionDate) : undefined,
+    usefulLife: propertyData.usefulLife,
+    depreciationMethod: propertyData.depreciationMethod,
+    isNewProperty: propertyData.isNewProperty,
     createdAt: now,
     updatedAt: now,
   };

@@ -23,6 +23,17 @@ const createProperty = async (propertyData) => {
         acquisitionDate: new Date(propertyData.acquisitionDate),
         acquisitionCost: propertyData.acquisitionCost,
         category: propertyData.category,
+        // ローン関連情報
+        outstandingLoan: propertyData.outstandingLoan,
+        annualInterest: propertyData.annualInterest,
+        loanStartDate: propertyData.loanStartDate ? new Date(propertyData.loanStartDate) : undefined,
+        purpose: propertyData.purpose,
+        // 減価償却関連情報
+        buildingStructure: propertyData.buildingStructure,
+        constructionDate: propertyData.constructionDate ? new Date(propertyData.constructionDate) : undefined,
+        usefulLife: propertyData.usefulLife,
+        depreciationMethod: propertyData.depreciationMethod,
+        isNewProperty: propertyData.isNewProperty,
         createdAt: now,
         updatedAt: now,
     };

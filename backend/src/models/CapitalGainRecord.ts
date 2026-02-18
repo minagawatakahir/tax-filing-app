@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { CapitalGainCalculation } from '../services/capitalGainService';
 
 export interface ICapitalGainRecord extends Document {
-  userId: mongoose.Types.ObjectId;
+  userId: string;
   propertyId: string;
   input: {
     propertyId: string;
@@ -19,7 +19,7 @@ export interface ICapitalGainRecord extends Document {
 
 const CapitalGainRecordSchema = new Schema<ICapitalGainRecord>(
   {
-    userId: { type: Schema.Types.ObjectId, required: false },
+    userId: { type: String, required: false, default: 'demo-user' },
     propertyId: { type: String, required: true },
     input: {
       propertyId: { type: String, required: true },
