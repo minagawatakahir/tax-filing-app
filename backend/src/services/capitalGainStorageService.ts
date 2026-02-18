@@ -1,52 +1,45 @@
-/**
- * 譲渡所得計算結果の保存サービス
- */
-
 import { CapitalGainRecord, ICapitalGainRecord } from '../models/CapitalGainRecord';
-import { CapitalGainInput, CapitalGainCalculation } from './capitalGainService';
+import { CapitalGainCalculation } from './capitalGainService';
 
-export interface SaveCapitalGainInput {
-  userId: string;
-  propertyId?: string;
-  input: CapitalGainInput;
+export interface SaveCapitalGainRecordParams {
+  userId?: string;
+  propertyId: string;
+  input: {
+    propertyId: string;
+    saleDate: Date;
+    salePrice: number;
+    acquisitionCost: number;
+    improvementCost: number;
+    sellingExpenses: number;
+    ownershipPeriod: number;
+  };
   result: CapitalGainCalculation;
 }
 
-/**
- * 譲渡所得計算結果を保存
- */
 export const saveCapitalGainRecord = async (
-  data: SaveCapitalGainInput
+  params: SaveCapitalGainRecordParams
 ): Promise<ICapitalGainRecord> => {
-  const record = new CapitalGainRecord({
-    userId: data.userId,
-    propertyId: data.propertyId,
-    input: data.input,
-    result: data.result,
-  });
-
-  await record.save();
-  return record;
+  const record = new CapitalGainRecord(params);
+  return await record.save();
 };
 
-/**
- * ユーザーの譲渡所得計算履歴を取得
- */
-export const getCapitalGainRecords = async (
-  userId: string,
-  filters?: {
-    propertyId?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }
-): Promise<ICapitalGainRecord[]> => {
-  const query: any = { userId };
+export const getCapitalGainRecords = async (filters: {
+  userId?: string;
+  propertyId?: string;
+  startDate?: Date;
+  endDate?: Date;
+}): Promise<ICapitalGainRecord[]> => {
+  const query: any = {};
 
-  if (filters?.propertyId) {
+  if (filters.userId) {
+    query.userId = filters.userId;
+  }
+
+  if (filters.propertyId) {
     query.propertyId = filters.propertyId;
   }
 
-  if (filters?.startDate || filters?.endDate) {
+  if (filters.startDate || filters.endDate) {
     query.createdAt = {};
     if (filters.startDate) {
       query.createdAt.$gte = filters.startDate;
@@ -56,36 +49,9 @@ export const getCapitalGainRecords = async (
     }
   }
 
-  const records = await CapitalGainRecord.find(query).sort({ createdAt: -1 });
-  return records;
+  return await CapitalGainRecord.find(query).sort({ createdAt: -1 });
 };
 
-/**
- * 譲渡所得計算履歴を削除
- */
-export const deleteCapitalGainRecord = async (
-  recordId: string,
-  userId: string
-): Promise<boolean> => {
-  const result = await CapitalGainRecord.deleteOne({
-    _id: recordId,
-    userId,
-  });
-
-  return result.deletedCount > 0;
-};
-
-/**
- * 譲渡所得計算履歴を1件取得
- */
-export const getCapitalGainRecordById = async (
-  recordId: string,
-  userId: string
-): Promise<ICapitalGainRecord | null> => {
-  const record = await CapitalGainRecord.findOne({
-    _id: recordId,
-    userId,
-  });
-
-  return record;
+export const deleteCapitalGainRecord = async (id: string): Promise<void> => {
+  await CapitalGainRecord.findByIdAndDelete(id);
 };

@@ -8,7 +8,6 @@ import {
   saveCapitalGainRecord,
   getCapitalGainRecords,
   deleteCapitalGainRecord,
-  getCapitalGainRecordById,
 } from '../services/capitalGainStorageService';
 
 /**
@@ -95,7 +94,7 @@ export const getCapitalGainRecordsHandler = async (req: Request, res: Response) 
     if (startDate) filters.startDate = new Date(startDate as string);
     if (endDate) filters.endDate = new Date(endDate as string);
 
-    const records = await getCapitalGainRecords(userId, filters);
+    const records = await getCapitalGainRecords(filters);
 
     res.json({
       success: true,
@@ -116,7 +115,7 @@ export const getCapitalGainRecordsHandler = async (req: Request, res: Response) 
 export const deleteCapitalGainRecordHandler = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'demo-user';
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     if (!id) {
       return res.status(400).json({
@@ -125,14 +124,7 @@ export const deleteCapitalGainRecordHandler = async (req: Request, res: Response
       });
     }
 
-    const deleted = await deleteCapitalGainRecord(id, userId);
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        error: '計算結果が見つかりません',
-      });
-    }
+    await deleteCapitalGainRecord(id);
 
     res.json({
       success: true,

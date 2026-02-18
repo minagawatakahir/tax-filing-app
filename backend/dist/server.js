@@ -38,9 +38,13 @@ const taxExemptionRoutes_1 = __importDefault(require("./routes/taxExemptionRoute
 const documentRoutes_1 = __importDefault(require("./routes/documentRoutes"));
 const propertyRoutes_1 = __importDefault(require("./routes/propertyRoutes"));
 const salaryIncomeRoutes_1 = __importDefault(require("./routes/salaryIncomeRoutes"));
+const salaryIncomeStorageRoutes_1 = __importDefault(require("./routes/salaryIncomeStorageRoutes"));
+const capitalGainStorageRoutes_1 = __importDefault(require("./routes/capitalGainStorageRoutes"));
 // ルートの登録
 app.use('/api/tax', taxRoutes_1.default);
 app.use('/api/salary-income', salaryIncomeRoutes_1.default);
+app.use('/api/salary-income', salaryIncomeStorageRoutes_1.default);
+app.use('/api/capital-gain', capitalGainStorageRoutes_1.default);
 app.use('/api/rsu', rsuRoutes_1.default);
 app.use('/api/real-estate', realEstateRoutes_1.default);
 app.use('/api/real-estate-income', realEstateIncomeRoutes_1.default);

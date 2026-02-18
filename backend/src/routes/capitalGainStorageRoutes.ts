@@ -1,1 +1,19 @@
-import { Router } from 'express';\nimport {\n  saveCapitalGainHandler,\n  getCapitalGainRecordsHandler,\n  deleteCapitalGainRecordHandler,\n} from '../controllers/capitalGainController';\n\nconst router = Router();\n\n// 譲渡所得計算結果を保存\nrouter.post('/save', saveCapitalGainHandler);\n\n// 譲渡所得計算履歴を取得\nrouter.get('/records', getCapitalGainRecordsHandler);\n\n// 譲渡所得計算履歴を削除\nrouter.delete('/records/:id', deleteCapitalGainRecordHandler);\n\nexport default router;\n
+import { Router } from 'express';
+import {
+  saveCapitalGainHandler,
+  getCapitalGainRecordsHandler,
+  deleteCapitalGainRecordHandler,
+} from '../controllers/capitalGainController';
+
+const router = Router();
+
+// 譲渡所得計算結果を保存
+router.post('/save', saveCapitalGainHandler);
+
+// 譲渡所得計算履歴を取得
+router.get('/records', getCapitalGainRecordsHandler);
+
+// 譲渡所得計算履歴を削除
+router.delete('/records/:id', deleteCapitalGainRecordHandler);
+
+export default router;

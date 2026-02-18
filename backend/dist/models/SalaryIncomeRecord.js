@@ -33,76 +33,33 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SalaryIncomeRecord = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const PropertySchema = new mongoose_1.Schema({
-    propertyId: {
-        type: String,
-        unique: true,
-        required: true,
+const SalaryIncomeRecordSchema = new mongoose_1.Schema({
+    userId: { type: mongoose_1.Schema.Types.ObjectId, required: false },
+    year: { type: Number, required: true },
+    input: {
+        annualSalary: { type: Number, required: true },
+        withheldTax: { type: Number, required: true },
+        socialInsurance: { type: Number, required: true },
+        lifeInsurance: { type: Number },
+        dependents: { type: Number },
+        spouseDeduction: { type: Boolean },
     },
-    propertyName: {
-        type: String,
-        required: true,
-    },
-    address: {
-        type: String,
-        required: true,
-    },
-    landValue: {
-        type: Number,
-        default: 0,
-    },
-    buildingValue: {
-        type: Number,
-        default: 0,
-    },
-    totalValue: {
-        type: Number,
-        required: true,
-    },
-    acquisitionDate: {
-        type: Date,
-        required: true,
-    },
-    acquisitionCost: {
-        type: Number,
-        required: true,
-    },
-    category: {
-        type: String,
-        enum: ['residential', 'commercial', 'land'],
-        required: true,
-    },
-    // ローン関連情報
-    outstandingLoan: {
-        type: Number,
-        default: 0,
-    },
-    annualInterest: {
-        type: Number,
-        default: 0,
-    },
-    loanStartDate: {
-        type: Date,
-    },
-    purpose: {
-        type: String,
-        enum: ['residential', 'investment', 'business'],
-    },
-    // 減価償却関連情報
-    buildingStructure: {
-        type: String,
-        enum: ['wood', 'steel', 'rc', 'src'],
-    },
-    usefulLife: {
-        type: Number,
-    },
-    depreciationMethod: {
-        type: String,
-        enum: ['straight-line', 'declining-balance'],
-        default: 'straight-line',
+    result: {
+        annualSalary: { type: Number, required: true },
+        salaryIncomeDeduction: { type: Number, required: true },
+        salaryIncome: { type: Number, required: true },
+        socialInsurance: { type: Number, required: true },
+        lifeInsurance: { type: Number, required: true },
+        basicDeduction: { type: Number, required: true },
+        dependentDeduction: { type: Number, required: true },
+        spouseDeduction: { type: Number, required: true },
+        totalDeduction: { type: Number, required: true },
+        taxableIncome: { type: Number, required: true },
+        estimatedTax: { type: Number, required: true },
     },
 }, {
     timestamps: true,
 });
-exports.default = mongoose_1.default.model('Property', PropertySchema);
+exports.SalaryIncomeRecord = mongoose_1.default.model('SalaryIncomeRecord', SalaryIncomeRecordSchema);

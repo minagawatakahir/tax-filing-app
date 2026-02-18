@@ -4,7 +4,6 @@ import {
   saveSalaryIncomeRecord,
   getSalaryIncomeRecords,
   deleteSalaryIncomeRecord,
-  getSalaryIncomeRecordById,
 } from '../services/salaryIncomeStorageService';
 
 /**
@@ -105,7 +104,7 @@ export const getSalaryIncomeRecordsHandler = async (req: Request, res: Response)
     if (startDate) filters.startDate = new Date(startDate as string);
     if (endDate) filters.endDate = new Date(endDate as string);
 
-    const records = await getSalaryIncomeRecords(userId, filters);
+    const records = await getSalaryIncomeRecords(filters);
 
     res.json({
       success: true,
@@ -126,7 +125,7 @@ export const getSalaryIncomeRecordsHandler = async (req: Request, res: Response)
 export const deleteSalaryIncomeRecordHandler = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'demo-user';
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     if (!id) {
       return res.status(400).json({
@@ -135,14 +134,7 @@ export const deleteSalaryIncomeRecordHandler = async (req: Request, res: Respons
       });
     }
 
-    const deleted = await deleteSalaryIncomeRecord(id, userId);
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        error: '計算結果が見つかりません',
-      });
-    }
+    await deleteSalaryIncomeRecord(id);
 
     res.json({
       success: true,
