@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { SalaryIncomeResult } from '../services/salaryIncomeService';
 
 export interface ISalaryIncomeRecord extends Document {
-  userId: mongoose.Types.ObjectId;
+  userId: string;
   year: number;
   input: {
     annualSalary: number;
@@ -18,7 +18,7 @@ export interface ISalaryIncomeRecord extends Document {
 
 const SalaryIncomeRecordSchema = new Schema<ISalaryIncomeRecord>(
   {
-    userId: { type: Schema.Types.ObjectId, required: false },
+    userId: { type: String, required: false, default: 'demo-user' },
     year: { type: Number, required: true },
     input: {
       annualSalary: { type: Number, required: true },
