@@ -5,6 +5,12 @@ import {
   analyzeDepreciation,
   DepreciableAsset,
 } from '../services/depreciationService';
+// TX-31: 取得関連費用を含む減価償却基礎額計算
+import {
+  createDepreciableAssetFromProperty,
+  calculateDepreciableBasis,
+  allocateAcquisitionCosts,
+} from '../services/depreciationHelpers';
 
 /**
  * 減価償却スケジュール計算ハンドラー
@@ -63,5 +69,73 @@ export const getDepreciationReportHandler = async (req: Request, res: Response) 
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * TX-31: Propertyから減価償却資産を生成し、スケジュール計算
+ * 取得関連費用（登録免許税、仲介手数料）を建物取得価額に含める
+ */
+export const calculateDepreciationFromPropertyHandler = async (req: Request, res: Response) => {
+  try {
+    const { propertyId, usefulLife } = req.body;
+
+    if (!propertyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'propertyId は必須です',
+      });
+    }
+
+    // TX-31: Propertyモデルから減価償却資産を生成
+    const asset = await createDepreciableAssetFromProperty(propertyId, usefulLife);
+
+    // スケジュール計算
+    const schedule = generateDepreciationSchedule(asset);
+
+    res.json({
+      success: true,
+      data: {
+        asset,
+        schedule,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * TX-31: 建物の減価償却基礎額を計算（取得関連費用の按分を含む）
+ */
+export const calculateDepreciableBasisHandler = async (req: Request, res: Response) => {
+  try {
+    const { propertyId } = req.body;
+
+    if (!propertyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'propertyId は必須です',
+      });
+    }
+
+    // TX-31: 建物の減価償却基礎額を計算
+    const depreciableBasis = await calculateDepreciableBasis(propertyId);
+
+    res.json({
+      success: true,
+      data: {
+        propertyId,
+        depreciableBasis,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 };

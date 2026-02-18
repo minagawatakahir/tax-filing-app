@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDepreciationReportHandler = exports.predictFutureUndepreciatedBalanceHandler = exports.calculateDepreciationScheduleHandler = void 0;
+exports.calculateDepreciableBasisHandler = exports.calculateDepreciationFromPropertyHandler = exports.getDepreciationReportHandler = exports.predictFutureUndepreciatedBalanceHandler = exports.calculateDepreciationScheduleHandler = void 0;
 const depreciationService_1 = require("../services/depreciationService");
+// TX-31: 取得関連費用を含む減価償却基礎額計算
+const depreciationHelpers_1 = require("../services/depreciationHelpers");
 /**
  * 減価償却スケジュール計算ハンドラー
  */
@@ -63,3 +65,66 @@ const getDepreciationReportHandler = async (req, res) => {
     }
 };
 exports.getDepreciationReportHandler = getDepreciationReportHandler;
+/**
+ * TX-31: Propertyから減価償却資産を生成し、スケジュール計算
+ * 取得関連費用（登録免許税、仲介手数料）を建物取得価額に含める
+ */
+const calculateDepreciationFromPropertyHandler = async (req, res) => {
+    try {
+        const { propertyId, usefulLife } = req.body;
+        if (!propertyId) {
+            return res.status(400).json({
+                success: false,
+                error: 'propertyId は必須です',
+            });
+        }
+        // TX-31: Propertyモデルから減価償却資産を生成
+        const asset = await (0, depreciationHelpers_1.createDepreciableAssetFromProperty)(propertyId, usefulLife);
+        // スケジュール計算
+        const schedule = (0, depreciationService_1.generateDepreciationSchedule)(asset);
+        res.json({
+            success: true,
+            data: {
+                asset,
+                schedule,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+};
+exports.calculateDepreciationFromPropertyHandler = calculateDepreciationFromPropertyHandler;
+/**
+ * TX-31: 建物の減価償却基礎額を計算（取得関連費用の按分を含む）
+ */
+const calculateDepreciableBasisHandler = async (req, res) => {
+    try {
+        const { propertyId } = req.body;
+        if (!propertyId) {
+            return res.status(400).json({
+                success: false,
+                error: 'propertyId は必須です',
+            });
+        }
+        // TX-31: 建物の減価償却基礎額を計算
+        const depreciableBasis = await (0, depreciationHelpers_1.calculateDepreciableBasis)(propertyId);
+        res.json({
+            success: true,
+            data: {
+                propertyId,
+                depreciableBasis,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+};
+exports.calculateDepreciableBasisHandler = calculateDepreciableBasisHandler;
