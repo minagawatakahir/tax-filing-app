@@ -38,10 +38,14 @@ import taxExemptionRoutes from './routes/taxExemptionRoutes';
 import documentRoutes from './routes/documentRoutes';
 import propertyRoutes from './routes/propertyRoutes';
 import salaryIncomeRoutes from './routes/salaryIncomeRoutes';
+import salaryIncomeStorageRoutes from './routes/salaryIncomeStorageRoutes';
+import capitalGainStorageRoutes from './routes/capitalGainStorageRoutes';
 
 // ルートの登録
 app.use('/api/tax', taxRoutes);
 app.use('/api/salary-income', salaryIncomeRoutes);
+app.use('/api/salary-income', salaryIncomeStorageRoutes);
+app.use('/api/capital-gain', capitalGainStorageRoutes);
 app.use('/api/rsu', rsuRoutes);
 app.use('/api/real-estate', realEstateRoutes);
 app.use('/api/real-estate-income', realEstateIncomeRoutes);
