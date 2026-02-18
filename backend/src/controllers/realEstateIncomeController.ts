@@ -33,6 +33,25 @@ export const calculateSinglePropertyIncomeHandler = async (
       const property = await Property.findOne({ propertyId: income.propertyId });
       
       if (property && property.buildingValue && property.buildingValue > 0) {
+        // 耐用年数の計算
+        let calculatedUsefulLife = property.usefulLife;
+        
+        if (!calculatedUsefulLife) {
+          const legalUsefulLife = getDefaultUsefulLife(property.buildingStructure, property.category);
+          
+          // 中古物件の場合、簡便法で耐用年数を計算
+          if (property.constructionDate && !property.isNewProperty) {
+            calculatedUsefulLife = calculateUsedPropertyUsefulLife(
+              legalUsefulLife,
+              property.constructionDate,
+              property.acquisitionDate
+            );
+          } else {
+            // 新築物件の場合、法定耐用年数を使用
+            calculatedUsefulLife = legalUsefulLife;
+          }
+        }
+        
         // 物件情報から減価償却資産を自動生成
         depreciationAssetToUse = {
           assetId: property.propertyId,
@@ -40,7 +59,7 @@ export const calculateSinglePropertyIncomeHandler = async (
           acquisitionDate: property.acquisitionDate,
           acquisitionCost: property.buildingValue, // 建物価値を取得価額とする
           category: 'building',
-          usefulLife: property.usefulLife || getDefaultUsefulLife(property.buildingStructure, property.category),
+          usefulLife: calculatedUsefulLife,
           depreciationMethod: property.depreciationMethod === 'declining-balance' ? 'declining' : 'straight',
         } as DepreciableAsset;
       }
@@ -65,14 +84,14 @@ export const calculateSinglePropertyIncomeHandler = async (
 };
 
 /**
- * 建物構造とカテゴリーからデフォルト耐用年数を取得
+ * 建物構造とカテゴリーからデフォルト耐用年数を取得（新築物件）
  */
 function getDefaultUsefulLife(
   structure?: 'wood' | 'steel' | 'rc' | 'src',
   category?: 'residential' | 'commercial' | 'land'
 ): number {
   // デフォルト値
-  if (!structure) return 22; // RC造住宅用のデフォルト
+  if (!structure) return 47; // RC造住宅用のデフォルト
 
   // 住宅用建物の耐用年数
   if (category === 'residential') {
@@ -105,6 +124,36 @@ function getDefaultUsefulLife(
   }
 
   return 22; // その他のデフォルト
+}
+
+/**
+ * 中古物件の耐用年数を簡便法で計算
+ * @param legalUsefulLife 法定耐用年数
+ * @param constructionDate 建築年月
+ * @param acquisitionDate 取得年月
+ * @returns 計算後の耐用年数
+ */
+function calculateUsedPropertyUsefulLife(
+  legalUsefulLife: number,
+  constructionDate: Date,
+  acquisitionDate: Date
+): number {
+  // 経過年数を計算（月単位）
+  const elapsedMonths = Math.floor(
+    (acquisitionDate.getTime() - constructionDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+  );
+  const elapsedYears = Math.floor(elapsedMonths / 12);
+
+  // 法定耐用年数をすべて経過している場合
+  if (elapsedYears >= legalUsefulLife) {
+    return Math.floor(legalUsefulLife * 0.2);
+  }
+
+  // 法定耐用年数の一部を経過している場合
+  const remainingYears = legalUsefulLife - elapsedYears;
+  const additionalYears = Math.floor(elapsedYears * 0.2);
+  
+  return remainingYears + additionalYears;
 }
 
 /**

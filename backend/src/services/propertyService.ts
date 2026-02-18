@@ -19,8 +19,10 @@ export interface IPropertyData {
   purpose?: 'residential' | 'investment' | 'business';
   // 減価償却関連情報
   buildingStructure?: 'wood' | 'steel' | 'rc' | 'src';
+  constructionDate?: string | Date;
   usefulLife?: number;
   depreciationMethod?: 'straight-line' | 'declining-balance';
+  isNewProperty?: boolean;
 }
 
 /**
@@ -50,8 +52,10 @@ export const createProperty = async (propertyData: IPropertyData): Promise<any> 
     purpose: propertyData.purpose,
     // 減価償却関連情報
     buildingStructure: propertyData.buildingStructure,
+    constructionDate: propertyData.constructionDate ? new Date(propertyData.constructionDate) : undefined,
     usefulLife: propertyData.usefulLife,
     depreciationMethod: propertyData.depreciationMethod,
+    isNewProperty: propertyData.isNewProperty,
     createdAt: now,
     updatedAt: now,
   };

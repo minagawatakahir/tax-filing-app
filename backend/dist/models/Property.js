@@ -94,6 +94,9 @@ const PropertySchema = new mongoose_1.Schema({
         type: String,
         enum: ['wood', 'steel', 'rc', 'src'],
     },
+    constructionDate: {
+        type: Date,
+    },
     usefulLife: {
         type: Number,
     },
@@ -101,6 +104,10 @@ const PropertySchema = new mongoose_1.Schema({
         type: String,
         enum: ['straight-line', 'declining-balance'],
         default: 'straight-line',
+    },
+    isNewProperty: {
+        type: Boolean,
+        default: false,
     },
 }, {
     timestamps: true,
