@@ -3,7 +3,6 @@ const properties: Map<string, any> = new Map();
 let idCounter = 1;
 
 export interface IPropertyData {
-  propertyId: string;
   propertyName: string;
   address: string;
   landValue: number;
@@ -12,6 +11,7 @@ export interface IPropertyData {
   acquisitionDate: string | Date;
   acquisitionCost: number;
   category: 'residential' | 'commercial' | 'land';
+  propertyId?: string; // オプション（指定されない場合は自動生成）
 }
 
 /**
@@ -19,11 +19,21 @@ export interface IPropertyData {
  */
 export const createProperty = async (propertyData: IPropertyData): Promise<any> => {
   const id = `${idCounter++}`;
+  // propertyIdが指定されていない場合は自動採番
+  const propertyId = propertyData.propertyId || `property-${String(idCounter).padStart(3, '0')}`;
+  
   const now = new Date();
   const property = {
     _id: id,
-    ...propertyData,
+    propertyId,
+    propertyName: propertyData.propertyName,
+    address: propertyData.address,
+    landValue: propertyData.landValue,
+    buildingValue: propertyData.buildingValue,
+    totalValue: propertyData.totalValue,
     acquisitionDate: new Date(propertyData.acquisitionDate),
+    acquisitionCost: propertyData.acquisitionCost,
+    category: propertyData.category,
     createdAt: now,
     updatedAt: now,
   };

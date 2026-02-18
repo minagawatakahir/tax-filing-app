@@ -32,6 +32,7 @@ app.get('/api/health', (req: Request, res: Response): void => {
 import taxRoutes from './routes/taxRoutes';
 import rsuRoutes from './routes/rsuRoutes';
 import realEstateRoutes from './routes/realEstateRoutes';
+import realEstateIncomeRoutes from './routes/realEstateIncomeRoutes';
 import depreciationRoutes from './routes/depreciationRoutes';
 import taxExemptionRoutes from './routes/taxExemptionRoutes';
 import documentRoutes from './routes/documentRoutes';
@@ -43,6 +44,7 @@ app.use('/api/tax', taxRoutes);
 app.use('/api/salary-income', salaryIncomeRoutes);
 app.use('/api/rsu', rsuRoutes);
 app.use('/api/real-estate', realEstateRoutes);
+app.use('/api/real-estate-income', realEstateIncomeRoutes);
 app.use('/api/depreciation', depreciationRoutes);
 app.use('/api/tax-exemption', taxExemptionRoutes);
 app.use('/api/documents', documentRoutes);
