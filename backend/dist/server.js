@@ -32,16 +32,22 @@ app.get('/api/health', (req, res) => {
 const taxRoutes_1 = __importDefault(require("./routes/taxRoutes"));
 const rsuRoutes_1 = __importDefault(require("./routes/rsuRoutes"));
 const realEstateRoutes_1 = __importDefault(require("./routes/realEstateRoutes"));
+const realEstateIncomeRoutes_1 = __importDefault(require("./routes/realEstateIncomeRoutes"));
 const depreciationRoutes_1 = __importDefault(require("./routes/depreciationRoutes"));
 const taxExemptionRoutes_1 = __importDefault(require("./routes/taxExemptionRoutes"));
 const documentRoutes_1 = __importDefault(require("./routes/documentRoutes"));
+const propertyRoutes_1 = __importDefault(require("./routes/propertyRoutes"));
+const salaryIncomeRoutes_1 = __importDefault(require("./routes/salaryIncomeRoutes"));
 // ルートの登録
 app.use('/api/tax', taxRoutes_1.default);
+app.use('/api/salary-income', salaryIncomeRoutes_1.default);
 app.use('/api/rsu', rsuRoutes_1.default);
 app.use('/api/real-estate', realEstateRoutes_1.default);
+app.use('/api/real-estate-income', realEstateIncomeRoutes_1.default);
 app.use('/api/depreciation', depreciationRoutes_1.default);
 app.use('/api/tax-exemption', taxExemptionRoutes_1.default);
 app.use('/api/documents', documentRoutes_1.default);
+app.use('/api/properties', propertyRoutes_1.default);
 // エラーハンドリング
 app.use((err, req, res, next) => {
     console.error(err.stack);

@@ -65,22 +65,39 @@ export const calculateBatchRSUHandler = async (req: Request, res: Response) => {
     // 一括計算
     const calculations = await calculateBatchRSUTax(vestingData);
 
+    // 日付ごとの為替レート情報を追加
+    const calculationsWithRateInfo = calculations.map(calc => ({
+      ...calc,
+      vestingDateFormatted: new Date(calc.vestingDate).toLocaleDateString('ja-JP'),
+    }));
+
     // 年間集計を自動計算
     const currentYear = new Date().getFullYear();
     const totalShares = calculations.reduce((sum, calc) => sum + calc.shares, 0);
     const totalValueJPY = calculations.reduce((sum, calc) => sum + calc.totalValueJPY, 0);
     const totalTaxableIncomeJPY = calculations.reduce((sum, calc) => sum + calc.taxableIncomeJPY, 0);
 
+    // 為替レートの統計情報
+    const exchangeRates = calculations.map(calc => calc.exchangeRate);
+    const avgExchangeRate = exchangeRates.reduce((a, b) => a + b, 0) / exchangeRates.length;
+    const minExchangeRate = Math.min(...exchangeRates);
+    const maxExchangeRate = Math.max(...exchangeRates);
+
     res.json({
       success: true,
       data: {
-        calculations: calculations,
+        calculations: calculationsWithRateInfo,
         summary: {
           totalGrants: calculations.length,
           totalShares: totalShares,
           totalValueJPY: totalValueJPY,
           totalTaxableIncomeJPY: totalTaxableIncomeJPY,
           fiscalYear: currentYear,
+          exchangeRateStats: {
+            average: parseFloat(avgExchangeRate.toFixed(2)),
+            minimum: minExchangeRate,
+            maximum: maxExchangeRate,
+          },
         },
       },
     });
