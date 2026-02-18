@@ -10,6 +10,11 @@ export interface IProperty extends Document {
   acquisitionDate: Date;
   acquisitionCost: number;
   category: 'residential' | 'commercial' | 'land';
+  // 取得関連費用
+  acquisitionTax?: number; // 不動産取得税
+  registrationTax?: number; // 登録免許税
+  brokerFee?: number; // 仲介手数料
+  otherAcquisitionCosts?: number; // その他取得費用
   // ローン関連情報
   outstandingLoan?: number; // 現在のローン残高
   annualInterest?: number; // 年間利息
@@ -64,6 +69,19 @@ const PropertySchema: Schema = new Schema(
       type: String,
       enum: ['residential', 'commercial', 'land'],
       required: true,
+    },
+    // 取得関連費用
+    acquisitionTax: {
+      type: Number,
+    },
+    registrationTax: {
+      type: Number,
+    },
+    brokerFee: {
+      type: Number,
+    },
+    otherAcquisitionCosts: {
+      type: Number,
     },
     // ローン関連情報
     outstandingLoan: {
