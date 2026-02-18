@@ -65,7 +65,8 @@ export const calculateSinglePropertyIncomeHandler = async (
       }
     }
 
-    const result = calculateRealEstateIncome(
+    // TX-29: async/await対応
+    const result = await calculateRealEstateIncome(
       income as RentalIncomeData,
       expenses as RealEstateExpense,
       depreciationAssetToUse as DepreciableAsset | undefined
@@ -174,13 +175,16 @@ export const calculatePortfolioIncomeHandler = async (
       return;
     }
 
-    const calculations = properties.map((property: any) => {
-      return calculateRealEstateIncome(
-        property.income as RentalIncomeData,
-        property.expenses as RealEstateExpense,
-        property.depreciationAsset as DepreciableAsset | undefined
-      );
-    });
+    // TX-29: async/await対応（Promise.allで並列処理）
+    const calculations = await Promise.all(
+      properties.map((property: any) => {
+        return calculateRealEstateIncome(
+          property.income as RentalIncomeData,
+          property.expenses as RealEstateExpense,
+          property.depreciationAsset as DepreciableAsset | undefined
+        );
+      })
+    );
 
     const portfolio = calculateRealEstateIncomePortfolio(year, calculations);
 

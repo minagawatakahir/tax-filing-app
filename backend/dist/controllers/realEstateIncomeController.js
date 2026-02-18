@@ -49,7 +49,8 @@ const calculateSinglePropertyIncomeHandler = async (req, res) => {
                 };
             }
         }
-        const result = (0, realEstateIncomeService_1.calculateRealEstateIncome)(income, expenses, depreciationAssetToUse);
+        // TX-29: async/await対応
+        const result = await (0, realEstateIncomeService_1.calculateRealEstateIncome)(income, expenses, depreciationAssetToUse);
         res.json({
             success: true,
             data: result,
@@ -133,9 +134,10 @@ const calculatePortfolioIncomeHandler = async (req, res) => {
             });
             return;
         }
-        const calculations = properties.map((property) => {
+        // TX-29: async/await対応（Promise.allで並列処理）
+        const calculations = await Promise.all(properties.map((property) => {
             return (0, realEstateIncomeService_1.calculateRealEstateIncome)(property.income, property.expenses, property.depreciationAsset);
-        });
+        }));
         const portfolio = (0, realEstateIncomeService_1.calculateRealEstateIncomePortfolio)(year, calculations);
         res.json({
             success: true,

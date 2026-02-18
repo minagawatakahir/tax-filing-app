@@ -1,9 +1,11 @@
 /**
- * 不動産所得計算サービス (TX-20)
+ * 不動産所得計算サービス (TX-20 & TX-29)
  * 家賃収入、経費管理、減価償却費を統合して不動産所得を計算
+ * TX-29: 取得関連費用（不動産取得税）を取得年度に計上
  */
 
 import { DepreciableAsset, generateDepreciationSchedule } from './depreciationService';
+import Property from '../models/Property';
 
 /**
  * 家賃収入データ
@@ -13,6 +15,7 @@ export interface RentalIncomeData {
   year: number;
   monthlyRent: number; // 月額家賃
   months: number; // 家賃収入月数
+  rentalEndMonth?: number; // TX-33対応: 売却月（1-12、未指定 or 12 = 売却なし）
   otherIncome: number; // その他の収入（共益費など）
 }
 
@@ -29,6 +32,9 @@ export interface RealEstateExpense {
   insurance: number; // 火災保険料など
   utilities: number; // 水道光熱費
   otherExpenses: number; // その他経費
+  // TX-29: 取得関連費用
+  acquisitionTax?: number; // 不動産取得税（取得年度のみ計上）
+  expenseEndMonth?: number; // TX-33対応: 経費計上終了月（1-12、未指定 or 12 = 全年度）
 }
 
 /**
@@ -48,6 +54,7 @@ export interface RealEstateIncomeCalculation {
   propertyTax: number; // 固定資産税
   loanInterest: number; // ローン利息（建物部分のみ）
   depreciationExpense: number; // 減価償却費
+  acquisitionTaxExpense: number; // TX-29: 不動産取得税（取得年度のみ）
   totalExpenses: number;
   
   // 計算結果
@@ -63,6 +70,7 @@ export interface RealEstateIncomeCalculation {
     depreciationExpense: number;
     propertyTax: number;
     loanInterest: number;
+    acquisitionTax: number; // TX-29: 追加
   };
 }
 
@@ -85,7 +93,28 @@ export interface RealEstateIncomePortfolio {
 }
 
 /**
- * 家賃収入を計算
+ * 月別按分計算（TX-33対応）
+ * @param annualAmount - 年間金額
+ * @param endMonth - 終了月（1-12、未指定 or 12 = 全年度）
+ * @returns 按分計算後の金額
+ */
+export const calculateProportionalAmount = (
+  annualAmount: number,
+  endMonth?: number
+): number => {
+  if (!endMonth || endMonth >= 12) {
+    return annualAmount;
+  }
+  
+  if (endMonth < 1 || endMonth > 12) {
+    throw new Error('終了月は1-12の範囲で指定してください');
+  }
+  
+  return Math.round(annualAmount * endMonth / 12);
+};
+
+/**
+ * 家賃収入を計算（TX-33対応）
  */
 export const calculateRentalIncome = (
   monthlyRent: number,
@@ -102,37 +131,74 @@ export const calculateTotalExpenses = (expenses: RealEstateExpense): number => {
   return (
     expenses.managementFee +
     expenses.repairCost +
-    expenses.propertyTax +
-    expenses.loanInterest +
     expenses.insurance +
     expenses.utilities +
-    expenses.otherExpenses
+    expenses.otherExpenses +
+    expenses.propertyTax +
+    expenses.loanInterest
   );
 };
 
 /**
- * 不動産所得を計算
+ * 不動産所得を計算（TX-29: 取得年度に不動産取得税を計上）
  */
-export const calculateRealEstateIncome = (
+export const calculateRealEstateIncome = async (
   income: RentalIncomeData,
   expenses: RealEstateExpense,
   depreciationAsset?: DepreciableAsset
-): RealEstateIncomeCalculation => {
-  // 収入計算
+): Promise<RealEstateIncomeCalculation> => {
+  // TX-29: propertyId から物件情報を取得（取得年度の判定）
+  let isAcquisitionYear = false;
+  let acquisitionTaxAmount = 0;
+
+  if (expenses.propertyId && expenses.acquisitionTax !== undefined) {
+    try {
+      const property = await Property.findOne({ propertyId: expenses.propertyId });
+      
+      if (property) {
+        // 取得年度かどうかを判定
+        const acquisitionYear = property.acquisitionDate.getFullYear();
+        isAcquisitionYear = (acquisitionYear === expenses.year);
+        
+        // 取得年度の場合のみ不動産取得税を計上
+        if (isAcquisitionYear) {
+          acquisitionTaxAmount = expenses.acquisitionTax || 0;
+        }
+      }
+    } catch (error) {
+      console.warn(`Property lookup failed for ${expenses.propertyId}:`, error);
+      // エラーが発生した場合は入力値を信頼する
+      isAcquisitionYear = expenses.acquisitionTax ? true : false;
+      acquisitionTaxAmount = isAcquisitionYear ? (expenses.acquisitionTax || 0) : 0;
+    }
+  } else {
+    // propertyId がない場合は、acquisitionTax があれば計上
+    acquisitionTaxAmount = expenses.acquisitionTax || 0;
+  }
+
+  // TX-33: 月別按分計算
+  const rentalMonths = income.rentalEndMonth || 12;
   const totalRentalIncome = calculateRentalIncome(
     income.monthlyRent,
-    income.months,
+    rentalMonths,
     income.otherIncome
   );
   const totalIncome = totalRentalIncome;
 
-  // 経費計算
-  const operatingExpenses =
+  // 経費計算（TX-33対応で按分）
+  const expenseEndMonth = expenses.expenseEndMonth || 12;
+  
+  const operatingExpenses = calculateProportionalAmount(
     expenses.managementFee +
     expenses.repairCost +
     expenses.insurance +
     expenses.utilities +
-    expenses.otherExpenses;
+    expenses.otherExpenses,
+    expenseEndMonth
+  );
+
+  const propertyTaxExpense = calculateProportionalAmount(expenses.propertyTax, expenseEndMonth);
+  const loanInterestExpense = calculateProportionalAmount(expenses.loanInterest, expenseEndMonth);
 
   // 減価償却費の計算
   let depreciationExpense = 0;
@@ -146,16 +212,21 @@ export const calculateRealEstateIncome = (
     const currentYear = income.year; // 指定された年度を使用
     const currentYearSchedule = schedule.find(s => s.year === currentYear);
     if (currentYearSchedule) {
-      depreciationExpense = currentYearSchedule.annualDepreciation;
+      // TX-33対応: 減価償却費も按分
+      depreciationExpense = calculateProportionalAmount(
+        currentYearSchedule.annualDepreciation,
+        expenseEndMonth
+      );
     }
   }
 
-  // 総経費
+  // 総経費（TX-29: 不動産取得税を追加）
   const totalExpenses =
     operatingExpenses +
-    expenses.propertyTax +
-    expenses.loanInterest +
-    depreciationExpense;
+    propertyTaxExpense +
+    loanInterestExpense +
+    depreciationExpense +
+    acquisitionTaxAmount;
 
   // 不動産所得
   const realEstateIncome = totalIncome - totalExpenses;
@@ -167,9 +238,10 @@ export const calculateRealEstateIncome = (
     otherIncome: income.otherIncome,
     totalIncome,
     operatingExpenses,
-    propertyTax: expenses.propertyTax,
-    loanInterest: expenses.loanInterest,
+    propertyTax: propertyTaxExpense,
+    loanInterest: loanInterestExpense,
     depreciationExpense,
+    acquisitionTaxExpense: acquisitionTaxAmount, // TX-29: 追加
     totalExpenses,
     realEstateIncome,
     expenseBreakdown: {
@@ -179,8 +251,9 @@ export const calculateRealEstateIncome = (
       utilities: expenses.utilities,
       otherExpenses: expenses.otherExpenses,
       depreciationExpense,
-      propertyTax: expenses.propertyTax,
-      loanInterest: expenses.loanInterest,
+      propertyTax: propertyTaxExpense,
+      loanInterest: loanInterestExpense,
+      acquisitionTax: acquisitionTaxAmount, // TX-29: 追加
     },
   };
 };
