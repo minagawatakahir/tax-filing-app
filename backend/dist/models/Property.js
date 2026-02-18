@@ -89,6 +89,19 @@ const PropertySchema = new mongoose_1.Schema({
         type: String,
         enum: ['residential', 'investment', 'business'],
     },
+    // 減価償却関連情報
+    buildingStructure: {
+        type: String,
+        enum: ['wood', 'steel', 'rc', 'src'],
+    },
+    usefulLife: {
+        type: Number,
+    },
+    depreciationMethod: {
+        type: String,
+        enum: ['straight-line', 'declining-balance'],
+        default: 'straight-line',
+    },
 }, {
     timestamps: true,
 });
