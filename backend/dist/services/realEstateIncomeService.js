@@ -11,6 +11,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateRealEstateIncomePortfolio = exports.calculateRealEstateIncome = exports.calculateTotalExpenses = exports.calculateRentalIncome = exports.calculateProportionalAmount = void 0;
 const depreciationService_1 = require("./depreciationService");
 const Property_1 = __importDefault(require("../models/Property"));
+// TX-32: 複数年払い経費計算
+const multiYearExpenseHelpers_1 = require("./multiYearExpenseHelpers");
 /**
  * 月別按分計算（TX-33対応）
  * @param annualAmount - 年間金額
@@ -107,12 +109,50 @@ const calculateRealEstateIncome = async (income, expenses, depreciationAsset) =>
             depreciationExpense = (0, exports.calculateProportionalAmount)(currentYearSchedule.annualDepreciation, expenseEndMonth);
         }
     }
-    // 総経費（TX-29: 不動産取得税を追加）
+    // TX-32: 複数年払い経費を計算
+    let annualInsuranceExpense = 0;
+    let annualLoanGuaranteeExpense = 0;
+    let renovationExpense = 0;
+    let loanProcessingFeeExpense = 0;
+    if (expenses.propertyId) {
+        try {
+            const property = await Property_1.default.findOne({ propertyId: expenses.propertyId });
+            if (property) {
+                // 火災・地震保険の按分計算
+                if (property.insurancePaidAmount &&
+                    property.insuranceCoveragePeriodYears &&
+                    property.insurancePaymentStartDate) {
+                    annualInsuranceExpense = (0, multiYearExpenseHelpers_1.calculateAnnualExpenseFromMultiYearPayment)(property.insurancePaidAmount, property.insuranceCoveragePeriodYears, property.insurancePaymentStartDate, expenses.year);
+                }
+                // ローン保証料の按分計算
+                if (property.loanGuaranteePaidAmount &&
+                    property.loanGuaranteePeriodYears &&
+                    property.loanGuaranteeStartDate) {
+                    annualLoanGuaranteeExpense = (0, multiYearExpenseHelpers_1.calculateAnnualExpenseFromMultiYearPayment)(property.loanGuaranteePaidAmount, property.loanGuaranteePeriodYears, property.loanGuaranteeStartDate, expenses.year);
+                }
+                // リフォーム費用の集計
+                renovationExpense = (0, multiYearExpenseHelpers_1.calculateRenovationExpenseForYear)(property.renovationExpenses, expenses.year);
+                // ローン手数料（取得年度のみ）
+                const acquisitionYear = property.acquisitionDate.getFullYear();
+                if (property.loanProcessingFee && acquisitionYear === expenses.year) {
+                    loanProcessingFeeExpense = property.loanProcessingFee;
+                }
+            }
+        }
+        catch (error) {
+            console.warn(`Property lookup failed for TX-32 calculation:`, error);
+        }
+    }
+    // 総経費（TX-29: 不動産取得税を追加、TX-32: 複数年払い経費を追加）
     const totalExpenses = operatingExpenses +
         propertyTaxExpense +
         loanInterestExpense +
         depreciationExpense +
-        acquisitionTaxAmount;
+        acquisitionTaxAmount +
+        annualInsuranceExpense +
+        annualLoanGuaranteeExpense +
+        renovationExpense +
+        loanProcessingFeeExpense;
     // 不動産所得
     const realEstateIncome = totalIncome - totalExpenses;
     return {
@@ -138,6 +178,10 @@ const calculateRealEstateIncome = async (income, expenses, depreciationAsset) =>
             propertyTax: propertyTaxExpense,
             loanInterest: loanInterestExpense,
             acquisitionTax: acquisitionTaxAmount, // TX-29: 追加
+            annualInsuranceExpense, // TX-32: 追加
+            annualLoanGuaranteeExpense, // TX-32: 追加
+            renovationExpense, // TX-32: 追加
+            loanProcessingFee: loanProcessingFeeExpense, // TX-32: 追加
         },
     };
 };

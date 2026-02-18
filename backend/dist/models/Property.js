@@ -122,6 +122,42 @@ const PropertySchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
+    // TX-32: 火災・地震保険（複数年払い対応）
+    insurancePaidAmount: {
+        type: Number,
+    },
+    insuranceCoveragePeriodYears: {
+        type: Number,
+    },
+    insurancePaymentStartDate: {
+        type: Date,
+    },
+    // TX-32: ローン保証料（複数年払い対応）
+    loanGuaranteePaidAmount: {
+        type: Number,
+    },
+    loanGuaranteePeriodYears: {
+        type: Number,
+    },
+    loanGuaranteeStartDate: {
+        type: Date,
+    },
+    // TX-32: リフォーム・改修費用（配列）
+    renovationExpenses: {
+        type: [
+            {
+                date: Date,
+                amount: Number,
+                description: String,
+                year: Number,
+            },
+        ],
+        default: [],
+    },
+    // TX-32: ローン手数料
+    loanProcessingFee: {
+        type: Number,
+    },
 }, {
     timestamps: true,
 });

@@ -26,6 +26,23 @@ export interface IProperty extends Document {
   usefulLife?: number; // 耐用年数（年・自動計算）
   depreciationMethod?: 'straight-line' | 'declining-balance'; // 償却方法（定額法、定率法）
   isNewProperty?: boolean; // 新築物件フラグ
+  // TX-32: 火災・地震保険（複数年払い対応）
+  insurancePaidAmount?: number; // 支払った保険料総額
+  insuranceCoveragePeriodYears?: number; // カバー期間（年数）
+  insurancePaymentStartDate?: Date; // 保険開始日
+  // TX-32: ローン保証料（複数年払い対応）
+  loanGuaranteePaidAmount?: number; // 支払った保証料総額
+  loanGuaranteePeriodYears?: number; // 保証期間（年数）
+  loanGuaranteeStartDate?: Date; // 保証開始日
+  // TX-32: リフォーム・改修費用（配列）
+  renovationExpenses?: Array<{
+    date: Date;
+    amount: number;
+    description?: string;
+    year: number;
+  }>;
+  // TX-32: ローン手数料
+  loanProcessingFee?: number; // ローン手数料（初年度のみ）
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,6 +135,42 @@ const PropertySchema: Schema = new Schema(
     isNewProperty: {
       type: Boolean,
       default: false,
+    },
+    // TX-32: 火災・地震保険（複数年払い対応）
+    insurancePaidAmount: {
+      type: Number,
+    },
+    insuranceCoveragePeriodYears: {
+      type: Number,
+    },
+    insurancePaymentStartDate: {
+      type: Date,
+    },
+    // TX-32: ローン保証料（複数年払い対応）
+    loanGuaranteePaidAmount: {
+      type: Number,
+    },
+    loanGuaranteePeriodYears: {
+      type: Number,
+    },
+    loanGuaranteeStartDate: {
+      type: Date,
+    },
+    // TX-32: リフォーム・改修費用（配列）
+    renovationExpenses: {
+      type: [
+        {
+          date: Date,
+          amount: Number,
+          description: String,
+          year: Number,
+        },
+      ],
+      default: [],
+    },
+    // TX-32: ローン手数料
+    loanProcessingFee: {
+      type: Number,
     },
   },
   {
