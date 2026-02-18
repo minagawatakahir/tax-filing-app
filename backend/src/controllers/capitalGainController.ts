@@ -25,8 +25,8 @@ export const calculateCapitalGainHandler = async (req: Request, res: Response) =
       });
     }
 
-    // 計算実行
-    const result = calculateCapitalGain(input);
+    // 計算実行（TX-30: async/await対応）
+    const result = await calculateCapitalGain(input);
 
     return res.json({
       success: true,

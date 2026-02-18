@@ -23,6 +23,11 @@ const createProperty = async (propertyData) => {
         acquisitionDate: new Date(propertyData.acquisitionDate),
         acquisitionCost: propertyData.acquisitionCost,
         category: propertyData.category,
+        // 取得関連費用
+        acquisitionTax: propertyData.acquisitionTax,
+        registrationTax: propertyData.registrationTax,
+        brokerFee: propertyData.brokerFee,
+        otherAcquisitionCosts: propertyData.otherAcquisitionCosts,
         // ローン関連情報
         outstandingLoan: propertyData.outstandingLoan,
         annualInterest: propertyData.annualInterest,

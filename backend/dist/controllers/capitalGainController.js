@@ -19,8 +19,8 @@ const calculateCapitalGainHandler = async (req, res) => {
                 error: '必須項目が入力されていません',
             });
         }
-        // 計算実行
-        const result = (0, capitalGainService_1.calculateCapitalGain)(input);
+        // 計算実行（TX-30: async/await対応）
+        const result = await (0, capitalGainService_1.calculateCapitalGain)(input);
         return res.json({
             success: true,
             result,

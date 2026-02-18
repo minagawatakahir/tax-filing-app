@@ -73,6 +73,19 @@ const PropertySchema = new mongoose_1.Schema({
         enum: ['residential', 'commercial', 'land'],
         required: true,
     },
+    // 取得関連費用
+    acquisitionTax: {
+        type: Number,
+    },
+    registrationTax: {
+        type: Number,
+    },
+    brokerFee: {
+        type: Number,
+    },
+    otherAcquisitionCosts: {
+        type: Number,
+    },
     // ローン関連情報
     outstandingLoan: {
         type: Number,

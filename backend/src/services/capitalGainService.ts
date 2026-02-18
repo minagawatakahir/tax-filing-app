@@ -2,8 +2,10 @@
  * 譲渡所得計算サービス
  */
 
+import Property from '../models/Property';
+
 export interface CapitalGainInput {
-  propertyId: string;
+  propertyId: string; // Property モデルから取得費を取得するため必須
   saleDate: string;
   salePrice: number;
   brokerageFee: number;
@@ -11,9 +13,10 @@ export interface CapitalGainInput {
   registrationCost: number;
   otherExpenses: number;
   specialDeduction: number;
-  acquisitionDate: string;
-  acquisitionCost: number;
-  acquisitionExpenses: number;
+  // 以下のフィールドは後方互換性のため残す（propertyIdがあれば不要）
+  acquisitionDate?: string;
+  acquisitionCost?: number;
+  acquisitionExpenses?: number;
 }
 
 export interface OwnershipPeriod {
@@ -23,7 +26,7 @@ export interface OwnershipPeriod {
 
 export interface CapitalGainCalculation {
   saleAmount: number;
-  acquisitionCost: number;
+  acquisitionCost: number; // 取得費（取得関連費用含む）
   transferExpenses: number;
   capitalGain: number;
   specialDeduction: number;
@@ -35,6 +38,14 @@ export interface CapitalGainCalculation {
   residentTax: number;
   reconstructionTax: number;
   totalTax: number;
+  // TX-30: 取得関連費用の内訳を追加
+  breakdown?: {
+    baseCost: number; // 基本取得費
+    acquisitionTax: number; // 不動産取得税
+    registrationTax: number; // 登録免許税
+    brokerFee: number; // 仲介手数料
+    otherAcquisitionCosts: number; // その他取得費用
+  };
 }
 
 /**
@@ -53,10 +64,50 @@ const calculateOwnershipPeriod = (acquisitionDate: Date, saleDate: Date): Owners
 };
 
 /**
- * 譲渡所得を計算
+ * 譲渡所得を計算（TX-30: Property モデルから取得関連費用を取得）
  */
-export const calculateCapitalGain = (input: CapitalGainInput): CapitalGainCalculation => {
-  const acquisitionDate = new Date(input.acquisitionDate);
+export const calculateCapitalGain = async (
+  input: CapitalGainInput
+): Promise<CapitalGainCalculation> => {
+  // TX-30: propertyId から物件情報を取得
+  let property = null;
+  let acquisitionDate: Date;
+  let baseCost: number;
+  let acquisitionTaxAmount: number = 0;
+  let registrationTaxAmount: number = 0;
+  let brokerFeeAmount: number = 0;
+  let otherCostsAmount: number = 0;
+
+  if (input.propertyId) {
+    try {
+      property = await Property.findOne({ propertyId: input.propertyId });
+      
+      if (property) {
+        acquisitionDate = property.acquisitionDate;
+        baseCost = property.acquisitionCost;
+        
+        // TX-30: 取得関連費用を取得
+        acquisitionTaxAmount = property.acquisitionTax || 0;
+        registrationTaxAmount = property.registrationTax || 0;
+        brokerFeeAmount = property.brokerFee || 0;
+        otherCostsAmount = property.otherAcquisitionCosts || 0;
+      } else {
+        // 物件が見つからない場合は入力値を使用（後方互換性）
+        acquisitionDate = input.acquisitionDate ? new Date(input.acquisitionDate) : new Date();
+        baseCost = input.acquisitionCost || 0;
+      }
+    } catch (error) {
+      console.warn(`Property lookup failed for ${input.propertyId}:`, error);
+      // エラーが発生した場合は入力値を使用
+      acquisitionDate = input.acquisitionDate ? new Date(input.acquisitionDate) : new Date();
+      baseCost = input.acquisitionCost || 0;
+    }
+  } else {
+    // propertyId がない場合は入力値を使用（後方互換性）
+    acquisitionDate = input.acquisitionDate ? new Date(input.acquisitionDate) : new Date();
+    baseCost = input.acquisitionCost || 0;
+  }
+
   const saleDate = new Date(input.saleDate);
 
   // 所有期間計算
@@ -75,8 +126,16 @@ export const calculateCapitalGain = (input: CapitalGainInput): CapitalGainCalcul
     input.registrationCost +
     input.otherExpenses;
 
+  // TX-30: 取得費 = 基本取得費 + 取得関連費用
+  const totalAcquisitionCost = 
+    baseCost +
+    acquisitionTaxAmount +
+    registrationTaxAmount +
+    brokerFeeAmount +
+    otherCostsAmount;
+
   // 譲渡所得 = 売却価格 - (取得費 + 転売費用)
-  const capitalGain = input.salePrice - (input.acquisitionCost + input.acquisitionExpenses + transferExpenses);
+  const capitalGain = input.salePrice - (totalAcquisitionCost + transferExpenses);
 
   // 特別控除後の課税譲渡所得
   const taxableCapitalGain = Math.max(0, capitalGain - input.specialDeduction);
@@ -102,7 +161,7 @@ export const calculateCapitalGain = (input: CapitalGainInput): CapitalGainCalcul
 
   return {
     saleAmount: input.salePrice,
-    acquisitionCost: input.acquisitionCost + input.acquisitionExpenses,
+    acquisitionCost: totalAcquisitionCost,
     transferExpenses,
     capitalGain,
     specialDeduction: input.specialDeduction,
@@ -114,5 +173,13 @@ export const calculateCapitalGain = (input: CapitalGainInput): CapitalGainCalcul
     residentTax: Math.round(residentTax),
     reconstructionTax: Math.round(reconstructionTax),
     totalTax: Math.round(totalTax),
+    // TX-30: 内訳を追加
+    breakdown: {
+      baseCost,
+      acquisitionTax: acquisitionTaxAmount,
+      registrationTax: registrationTaxAmount,
+      brokerFee: brokerFeeAmount,
+      otherAcquisitionCosts: otherCostsAmount,
+    },
   };
 };
