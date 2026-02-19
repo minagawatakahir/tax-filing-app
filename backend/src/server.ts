@@ -39,12 +39,14 @@ import documentRoutes from './routes/documentRoutes';
 import propertyRoutes from './routes/propertyRoutes';
 import salaryIncomeRoutes from './routes/salaryIncomeRoutes';
 import salaryIncomeStorageRoutes from './routes/salaryIncomeStorageRoutes';
+import capitalGainRoutes from './routes/capitalGainRoutes';
 import capitalGainStorageRoutes from './routes/capitalGainStorageRoutes';
 
 // ルートの登録
 app.use('/api/tax', taxRoutes);
 app.use('/api/salary-income', salaryIncomeRoutes);
 app.use('/api/salary-income', salaryIncomeStorageRoutes);
+app.use('/api/capital-gain', capitalGainRoutes);
 app.use('/api/capital-gain', capitalGainStorageRoutes);
 app.use('/api/rsu', rsuRoutes);
 app.use('/api/real-estate', realEstateRoutes);
