@@ -78,12 +78,12 @@ export const generateRSUIncomeListPDF = (data: RSUIncomeData): PDFKit.PDFDocumen
   // テーブルヘッダー
   const startY = doc.y;
   const columns = [
-    { x: 40, width: 100, header: '企業名' },
-    { x: 140, width: 90, header: '権利確定日' },
-    { x: 230, width: 70, header: '株数' },
-    { x: 300, width: 70, header: 'USD単価' },
-    { x: 370, width: 75, header: 'TTMレート' },
-    { x: 445, width: 90, header: 'JPY評価額' },
+    { x: 40, width: 100, header: 'Company' },
+    { x: 140, width: 90, header: 'Vesting Date' },
+    { x: 230, width: 70, header: 'Shares' },
+    { x: 300, width: 70, header: 'USD Price' },
+    { x: 370, width: 75, header: 'TTM Rate' },
+    { x: 445, width: 90, header: 'JPY Amount' },
   ];
 
   // ヘッダー背景
@@ -145,7 +145,7 @@ export const generateRSUIncomeListPDF = (data: RSUIncomeData): PDFKit.PDFDocumen
   doc.rect(40, rowY - 5, 515, 25).fill('#D4E6F1');
   doc.fillColor('#000000').fontSize(10).font('Helvetica');
 
-  doc.text('年間合計', 40, rowY, { width: 100, align: 'left' });
+  doc.text('Total', 40, rowY, { width: 100, align: 'left' });
   doc.text('', 140, rowY, { width: 90 });
   doc.text('', 230, rowY, { width: 70 });
   doc.text('', 300, rowY, { width: 70 });
@@ -182,10 +182,10 @@ export const generateRealEstateIncomeListPDF = (data: RealEstateIncomeData): PDF
   // テーブルヘッダー
   const startY = doc.y;
   const columns = [
-    { x: 40, width: 120, header: '物件名' },
-    { x: 160, width: 100, header: '賃料収入' },
-    { x: 260, width: 100, header: '経費' },
-    { x: 360, width: 100, header: '所得額' },
+    { x: 40, width: 120, header: 'Property' },
+    { x: 160, width: 100, header: 'Rental Income' },
+    { x: 260, width: 100, header: 'Expenses' },
+    { x: 360, width: 100, header: 'Net Income' },
   ];
 
   // ヘッダー背景
@@ -282,11 +282,11 @@ export const generateCapitalGainListPDF = (data: CapitalGainData): PDFKit.PDFDoc
   // テーブルヘッダー
   const startY = doc.y;
   const columns = [
-    { x: 40, width: 110, header: '物件名' },
-    { x: 150, width: 90, header: '売却価格' },
-    { x: 240, width: 90, header: '取得費' },
-    { x: 330, width: 90, header: '譲渡費用' },
-    { x: 420, width: 90, header: '譲渡所得' },
+    { x: 40, width: 110, header: 'Property' },
+    { x: 150, width: 90, header: 'Sale Price' },
+    { x: 240, width: 90, header: 'Acquisition Cost' },
+    { x: 330, width: 90, header: 'Transfer Cost' },
+    { x: 420, width: 90, header: 'Capital Gain' },
   ];
 
   // ヘッダー背景
