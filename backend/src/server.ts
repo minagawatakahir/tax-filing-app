@@ -39,6 +39,7 @@ import documentRoutes from './routes/documentRoutes';
 import propertyRoutes from './routes/propertyRoutes';
 import salaryIncomeRoutes from './routes/salaryIncomeRoutes';
 import salaryIncomeStorageRoutes from './routes/salaryIncomeStorageRoutes';
+import rsuIncomeRoutes from './routes/rsuIncomeRoutes';
 import capitalGainRoutes from './routes/capitalGainRoutes';
 import capitalGainStorageRoutes from './routes/capitalGainStorageRoutes';
 
@@ -46,6 +47,7 @@ import capitalGainStorageRoutes from './routes/capitalGainStorageRoutes';
 app.use('/api/tax', taxRoutes);
 app.use('/api/salary-income', salaryIncomeRoutes);
 app.use('/api/salary-income', salaryIncomeStorageRoutes);
+app.use('/api/rsu-income', rsuIncomeRoutes);
 app.use('/api/capital-gain', capitalGainRoutes);
 app.use('/api/capital-gain', capitalGainStorageRoutes);
 app.use('/api/rsu', rsuRoutes);

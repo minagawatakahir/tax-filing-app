@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "@types/express": "^5.0.6",
+    "@types/pdfkit": "^0.17.5",
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -24,6 +25,7 @@
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.1",
+    "pdfkit": "^0.17.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
