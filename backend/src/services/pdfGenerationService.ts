@@ -3,6 +3,8 @@ import PDFDocument from 'pdfkit';
 /**
  * PDF生成サービス
  * RSU所得、不動産所得、譲渡所得のPDF出力機能を提供
+ * 
+ * Note: 日本語表示の問題を避けるため、現在は英語表記を使用
  */
 
 interface RSUIncomeData {
@@ -55,18 +57,18 @@ export const generateRSUIncomeListPDF = (data: RSUIncomeData): PDFKit.PDFDocumen
     margin: 40,
   });
 
-  // タイトル
-  doc.fontSize(16).font('Courier').text('確定申告補助資料 - RSU所得一覧', { align: 'center' });
+  // タイトル（英語表記）
+  doc.fontSize(16).font('Helvetica-Bold').text('Tax Filing Support - RSU Income List', { align: 'center' });
   doc.moveDown(0.5);
 
   // メタ情報
-  doc.fontSize(10)
-    .text(`対象年度: ${data.year}年`, { align: 'left' })
-    .text(`作成日: ${new Date().toLocaleDateString('ja-JP')}`, { align: 'left' });
+  doc.fontSize(10).font('Helvetica')
+    .text(`Fiscal Year: ${data.year}`, { align: 'left' })
+    .text(`Generated: ${new Date().toLocaleDateString('en-US')}`, { align: 'left' });
   
   doc.fontSize(8)
     .fillColor('#666666')
-    .text('免責事項：本資料は参考用です。正確な金額は税理士にご確認ください。', {
+    .text('Note: This document is for reference only. Please consult with a tax accountant.', {
       align: 'left',
     })
     .fillColor('#000000');
@@ -91,7 +93,7 @@ export const generateRSUIncomeListPDF = (data: RSUIncomeData): PDFKit.PDFDocumen
   // ヘッダーテキスト
   columns.forEach((col) => {
     doc.fontSize(9)
-      .font('Courier')
+      .font('Helvetica')
       .text(col.header, col.x, startY + 5, {
         width: col.width,
         align: 'center',
@@ -110,7 +112,7 @@ export const generateRSUIncomeListPDF = (data: RSUIncomeData): PDFKit.PDFDocumen
       doc.rect(40, rowY - 5, 515, rowHeight).fill('#F8F8F8');
     }
 
-    doc.fillColor('#000000').fontSize(9).font('Courier');
+    doc.fillColor('#000000').fontSize(9).font('Helvetica');
 
     // 企業名
     doc.text(item.companyName, 40, rowY, { width: 100, align: 'left' });
@@ -141,7 +143,7 @@ export const generateRSUIncomeListPDF = (data: RSUIncomeData): PDFKit.PDFDocumen
 
   // 合計行
   doc.rect(40, rowY - 5, 515, 25).fill('#D4E6F1');
-  doc.fillColor('#000000').fontSize(10).font('Courier-Bold');
+  doc.fillColor('#000000').fontSize(10).font('Helvetica');
 
   doc.text('年間合計', 40, rowY, { width: 100, align: 'left' });
   doc.text('', 140, rowY, { width: 90 });
@@ -166,14 +168,14 @@ export const generateRealEstateIncomeListPDF = (data: RealEstateIncomeData): PDF
     margin: 40,
   });
 
-  // タイトル
-  doc.fontSize(16).font('Courier').text('確定申告補助資料 - 不動産所得一覧', { align: 'center' });
+  // タイトル（英語表記）
+  doc.fontSize(16).font('Helvetica-Bold').text('Tax Filing Support - Real Estate Income List', { align: 'center' });
   doc.moveDown(0.5);
 
   // メタ情報
-  doc.fontSize(10)
-    .text(`対象年度: ${data.year}年`, { align: 'left' })
-    .text(`作成日: ${new Date().toLocaleDateString('ja-JP')}`, { align: 'left' });
+  doc.fontSize(10).font('Helvetica')
+    .text(`Fiscal Year: ${data.year}`, { align: 'left' })
+    .text(`Generated: ${new Date().toLocaleDateString('en-US')}`, { align: 'left' });
 
   doc.moveDown(0.8);
 
@@ -193,7 +195,7 @@ export const generateRealEstateIncomeListPDF = (data: RealEstateIncomeData): PDF
   // ヘッダーテキスト
   columns.forEach((col) => {
     doc.fontSize(9)
-      .font('Courier')
+      .font('Helvetica')
       .text(col.header, col.x, startY + 5, {
         width: col.width,
         align: 'center',
@@ -212,7 +214,7 @@ export const generateRealEstateIncomeListPDF = (data: RealEstateIncomeData): PDF
       doc.rect(40, rowY - 5, 420, rowHeight).fill('#F8F8F8');
     }
 
-    doc.fillColor('#000000').fontSize(9).font('Courier');
+    doc.fillColor('#000000').fontSize(9).font('Helvetica');
 
     // 物件名
     doc.text(property.propertyName, 40, rowY, { width: 120, align: 'left' });
@@ -240,7 +242,7 @@ export const generateRealEstateIncomeListPDF = (data: RealEstateIncomeData): PDF
 
   // 合計行
   doc.rect(40, rowY - 5, 420, 25).fill('#D4E6F1');
-  doc.fillColor('#000000').fontSize(10).font('Courier-Bold');
+  doc.fillColor('#000000').fontSize(10).font('Helvetica');
 
   doc.text('合計', 40, rowY, { width: 120, align: 'left' });
   doc.text(`¥${data.totalIncome.toLocaleString()}`, 160, rowY, { width: 100, align: 'right' });
@@ -266,14 +268,14 @@ export const generateCapitalGainListPDF = (data: CapitalGainData): PDFKit.PDFDoc
     margin: 40,
   });
 
-  // タイトル
-  doc.fontSize(16).font('Courier').text('確定申告補助資料 - 譲渡所得一覧', { align: 'center' });
+  // タイトル（英語表記）
+  doc.fontSize(16).font('Helvetica-Bold').text('Tax Filing Support - Capital Gain List', { align: 'center' });
   doc.moveDown(0.5);
 
   // メタ情報
-  doc.fontSize(10)
-    .text(`対象年度: ${data.year}年`, { align: 'left' })
-    .text(`作成日: ${new Date().toLocaleDateString('ja-JP')}`, { align: 'left' });
+  doc.fontSize(10).font('Helvetica')
+    .text(`Fiscal Year: ${data.year}`, { align: 'left' })
+    .text(`Generated: ${new Date().toLocaleDateString('en-US')}`, { align: 'left' });
 
   doc.moveDown(0.8);
 
@@ -294,7 +296,7 @@ export const generateCapitalGainListPDF = (data: CapitalGainData): PDFKit.PDFDoc
   // ヘッダーテキスト
   columns.forEach((col) => {
     doc.fontSize(9)
-      .font('Courier')
+      .font('Helvetica')
       .text(col.header, col.x, startY + 5, {
         width: col.width,
         align: 'center',
@@ -313,7 +315,7 @@ export const generateCapitalGainListPDF = (data: CapitalGainData): PDFKit.PDFDoc
       doc.rect(40, rowY - 5, 470, rowHeight).fill('#F8F8F8');
     }
 
-    doc.fillColor('#000000').fontSize(9).font('Courier');
+    doc.fillColor('#000000').fontSize(9).font('Helvetica');
 
     // 物件名
     doc.text(property.propertyName, 40, rowY, { width: 110, align: 'left' });
@@ -347,7 +349,7 @@ export const generateCapitalGainListPDF = (data: CapitalGainData): PDFKit.PDFDoc
 
   // 合計行
   doc.rect(40, rowY - 5, 470, 25).fill('#D4E6F1');
-  doc.fillColor('#000000').fontSize(10).font('Courier-Bold');
+  doc.fillColor('#000000').fontSize(10).font('Helvetica');
 
   doc.text('合計', 40, rowY, { width: 110, align: 'left' });
   doc.text('', 150, rowY, { width: 90 });
