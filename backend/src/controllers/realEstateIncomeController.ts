@@ -199,3 +199,67 @@ export const calculatePortfolioIncomeHandler = async (
     });
   }
 };
+
+/**
+ * TX-35: 不動産所得一覧PDF出力
+ */
+export const exportRealEstateIncomePDF = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const year = parseInt(req.query.year as string);
+
+    if (!year) {
+      return res.status(400).json({
+        success: false,
+        error: 'year parameter is required',
+      });
+    }
+
+    // データ取得
+    const { getRealEstateIncomeByFiscalYear } = await import('../services/realEstateIncomeStorageService');
+    const records = getRealEstateIncomeByFiscalYear(year);
+
+    if (records.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No real estate income records found for the specified year',
+      });
+    }
+
+    // 合計計算
+    const totalIncome = records.reduce((sum, r) => sum + r.totalIncome, 0);
+    const totalExpenses = records.reduce((sum, r) => sum + r.totalExpenses, 0);
+    const totalNetIncome = records.reduce((sum, r) => sum + r.realEstateIncome, 0);
+
+    // PDF生成
+    const { generateRealEstateIncomeListPDF } = await import('../services/pdfGenerationService');
+    const pdfStream = generateRealEstateIncomeListPDF({
+      year,
+      properties: records.map(r => ({
+        propertyId: r.propertyId,
+        propertyName: r.propertyName,
+        rentalIncome: r.totalIncome,
+        expenses: r.totalExpenses,
+        netIncome: r.realEstateIncome,
+      })),
+      totalIncome,
+      totalExpenses,
+      totalNetIncome,
+    });
+
+    // レスポンスヘッダー設定
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=RealEstateIncome_${year}.pdf`);
+
+    // PDFをストリーム出力
+    pdfStream.pipe(res);
+  } catch (error: any) {
+    console.error('Error exporting real estate income PDF:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export real estate income PDF: ' + error.message,
+    });
+  }
+};

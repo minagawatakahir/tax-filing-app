@@ -1,6 +1,4 @@
-// 一時的なメモリストレージ（本来はMongoDBを使用）
-const properties: Map<string, any> = new Map();
-let idCounter = 1;
+import Property, { IProperty } from '../models/Property';
 
 export interface IPropertyData {
   propertyName: string;
@@ -28,92 +26,179 @@ export interface IPropertyData {
   usefulLife?: number;
   depreciationMethod?: 'straight-line' | 'declining-balance';
   isNewProperty?: boolean;
+  // TX-32: 火災・地震保険
+  insurancePaidAmount?: number;
+  insuranceCoveragePeriodYears?: number;
+  insurancePaymentStartDate?: string | Date;
+  // TX-32: ローン保証料
+  loanGuaranteePaidAmount?: number;
+  loanGuaranteePeriodYears?: number;
+  loanGuaranteeStartDate?: string | Date;
+  // TX-32: リフォーム・改修費用
+  renovationExpenses?: Array<{
+    date: Date | string;
+    amount: number;
+    description?: string;
+    year: number;
+  }>;
+  // TX-32: ローン手数料
+  loanProcessingFee?: number;
 }
 
 /**
- * 不動産物件を作成
+ * 自動採番されたpropertyIdを生成
  */
-export const createProperty = async (propertyData: IPropertyData): Promise<any> => {
-  const id = `${idCounter++}`;
-  // propertyIdが指定されていない場合は自動採番
-  const propertyId = propertyData.propertyId || `property-${String(idCounter).padStart(3, '0')}`;
-  
-  const now = new Date();
-  const property = {
-    _id: id,
-    propertyId,
-    propertyName: propertyData.propertyName,
-    address: propertyData.address,
-    landValue: propertyData.landValue,
-    buildingValue: propertyData.buildingValue,
-    totalValue: propertyData.totalValue,
-    acquisitionDate: new Date(propertyData.acquisitionDate),
-    acquisitionCost: propertyData.acquisitionCost,
-    category: propertyData.category,
-    // 取得関連費用
-    acquisitionTax: propertyData.acquisitionTax,
-    registrationTax: propertyData.registrationTax,
-    brokerFee: propertyData.brokerFee,
-    otherAcquisitionCosts: propertyData.otherAcquisitionCosts,
-    // ローン関連情報
-    outstandingLoan: propertyData.outstandingLoan,
-    annualInterest: propertyData.annualInterest,
-    loanStartDate: propertyData.loanStartDate ? new Date(propertyData.loanStartDate) : undefined,
-    purpose: propertyData.purpose,
-    // 減価償却関連情報
-    buildingStructure: propertyData.buildingStructure,
-    constructionDate: propertyData.constructionDate ? new Date(propertyData.constructionDate) : undefined,
-    usefulLife: propertyData.usefulLife,
-    depreciationMethod: propertyData.depreciationMethod,
-    isNewProperty: propertyData.isNewProperty,
-    createdAt: now,
-    updatedAt: now,
-  };
-  properties.set(id, property);
-  return property;
+const generatePropertyId = async (): Promise<string> => {
+  const count = await Property.countDocuments();
+  return `property-${String(count + 1).padStart(3, '0')}`;
 };
 
 /**
- * すべての不動産物件を取得
+ * 不動産物件を作成（MongoDB保存）
  */
-export const getAllProperties = async (): Promise<any[]> => {
-  return Array.from(properties.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+export const createProperty = async (propertyData: IPropertyData): Promise<IProperty> => {
+  try {
+    // propertyIdが指定されていない場合は自動採番
+    const propertyId = propertyData.propertyId || (await generatePropertyId());
+
+    const property = new Property({
+      propertyId,
+      propertyName: propertyData.propertyName,
+      address: propertyData.address,
+      landValue: propertyData.landValue,
+      buildingValue: propertyData.buildingValue,
+      totalValue: propertyData.totalValue,
+      acquisitionDate: new Date(propertyData.acquisitionDate),
+      acquisitionCost: propertyData.acquisitionCost,
+      category: propertyData.category,
+      // 取得関連費用
+      acquisitionTax: propertyData.acquisitionTax,
+      registrationTax: propertyData.registrationTax,
+      brokerFee: propertyData.brokerFee,
+      otherAcquisitionCosts: propertyData.otherAcquisitionCosts,
+      // ローン関連情報
+      outstandingLoan: propertyData.outstandingLoan,
+      annualInterest: propertyData.annualInterest,
+      loanStartDate: propertyData.loanStartDate ? new Date(propertyData.loanStartDate) : undefined,
+      purpose: propertyData.purpose,
+      // 減価償却関連情報
+      buildingStructure: propertyData.buildingStructure,
+      constructionDate: propertyData.constructionDate ? new Date(propertyData.constructionDate) : undefined,
+      usefulLife: propertyData.usefulLife,
+      depreciationMethod: propertyData.depreciationMethod,
+      isNewProperty: propertyData.isNewProperty,
+      // TX-32: 火災・地震保険
+      insurancePaidAmount: propertyData.insurancePaidAmount,
+      insuranceCoveragePeriodYears: propertyData.insuranceCoveragePeriodYears,
+      insurancePaymentStartDate: propertyData.insurancePaymentStartDate ? new Date(propertyData.insurancePaymentStartDate) : undefined,
+      // TX-32: ローン保証料
+      loanGuaranteePaidAmount: propertyData.loanGuaranteePaidAmount,
+      loanGuaranteePeriodYears: propertyData.loanGuaranteePeriodYears,
+      loanGuaranteeStartDate: propertyData.loanGuaranteeStartDate ? new Date(propertyData.loanGuaranteeStartDate) : undefined,
+      // TX-32: リフォーム・改修費用
+      renovationExpenses: propertyData.renovationExpenses?.map(exp => ({
+        date: new Date(exp.date),
+        amount: exp.amount,
+        description: exp.description,
+        year: exp.year,
+      })),
+      // TX-32: ローン手数料
+      loanProcessingFee: propertyData.loanProcessingFee,
+    });
+
+    return await property.save();
+  } catch (error: any) {
+    throw new Error(`物件の作成に失敗しました: ${error.message}`);
+  }
 };
 
 /**
- * IDで不動産物件を取得
+ * すべての不動産物件を取得（MongoDB）
  */
-export const getPropertyById = async (id: string): Promise<any | null> => {
-  return properties.get(id) || null;
+export const getAllProperties = async (): Promise<IProperty[]> => {
+  try {
+    return await Property.find().sort({ createdAt: -1 }).lean();
+  } catch (error: any) {
+    throw new Error(`物件の取得に失敗しました: ${error.message}`);
+  }
 };
 
 /**
- * 不動産物件を更新
+ * IDで不動産物件を取得（MongoDB）
  */
-export const updateProperty = async (id: string, propertyData: Partial<IPropertyData>): Promise<any | null> => {
-  const property = properties.get(id);
-  if (!property) return null;
-  
-  const updated = {
-    ...property,
-    ...propertyData,
-    _id: property._id,
-    createdAt: property.createdAt,
-    updatedAt: new Date(),
-  };
-  properties.set(id, updated);
-  return updated;
+export const getPropertyById = async (id: string): Promise<IProperty | null> => {
+  try {
+    return await Property.findById(id).lean();
+  } catch (error: any) {
+    throw new Error(`物件の取得に失敗しました: ${error.message}`);
+  }
 };
 
 /**
- * 不動産物件を削除
+ * 不動産物件を更新（MongoDB）
  */
-export const deleteProperty = async (id: string): Promise<any | null> => {
-  const property = properties.get(id);
-  if (!property) return null;
-  
-  properties.delete(id);
-  return property;
+export const updateProperty = async (id: string, propertyData: Partial<IPropertyData>): Promise<IProperty | null> => {
+  try {
+    const updateData: any = {
+      propertyName: propertyData.propertyName,
+      address: propertyData.address,
+      landValue: propertyData.landValue,
+      buildingValue: propertyData.buildingValue,
+      totalValue: propertyData.totalValue,
+      acquisitionDate: propertyData.acquisitionDate ? new Date(propertyData.acquisitionDate) : undefined,
+      acquisitionCost: propertyData.acquisitionCost,
+      category: propertyData.category,
+      // 取得関連費用
+      acquisitionTax: propertyData.acquisitionTax,
+      registrationTax: propertyData.registrationTax,
+      brokerFee: propertyData.brokerFee,
+      otherAcquisitionCosts: propertyData.otherAcquisitionCosts,
+      // ローン関連情報
+      outstandingLoan: propertyData.outstandingLoan,
+      annualInterest: propertyData.annualInterest,
+      loanStartDate: propertyData.loanStartDate ? new Date(propertyData.loanStartDate) : undefined,
+      purpose: propertyData.purpose,
+      // 減価償却関連情報
+      buildingStructure: propertyData.buildingStructure,
+      constructionDate: propertyData.constructionDate ? new Date(propertyData.constructionDate) : undefined,
+      usefulLife: propertyData.usefulLife,
+      depreciationMethod: propertyData.depreciationMethod,
+      isNewProperty: propertyData.isNewProperty,
+      // TX-32: 火災・地震保険
+      insurancePaidAmount: propertyData.insurancePaidAmount,
+      insuranceCoveragePeriodYears: propertyData.insuranceCoveragePeriodYears,
+      insurancePaymentStartDate: propertyData.insurancePaymentStartDate ? new Date(propertyData.insurancePaymentStartDate) : undefined,
+      // TX-32: ローン保証料
+      loanGuaranteePaidAmount: propertyData.loanGuaranteePaidAmount,
+      loanGuaranteePeriodYears: propertyData.loanGuaranteePeriodYears,
+      loanGuaranteeStartDate: propertyData.loanGuaranteeStartDate ? new Date(propertyData.loanGuaranteeStartDate) : undefined,
+      // TX-32: リフォーム・改修費用
+      renovationExpenses: propertyData.renovationExpenses?.map(exp => ({
+        date: new Date(exp.date),
+        amount: exp.amount,
+        description: exp.description,
+        year: exp.year,
+      })),
+      // TX-32: ローン手数料
+      loanProcessingFee: propertyData.loanProcessingFee,
+    };
+
+    // undefinedの値を削除
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+    return await Property.findByIdAndUpdate(id, updateData, { new: true }).lean();
+  } catch (error: any) {
+    throw new Error(`物件の更新に失敗しました: ${error.message}`);
+  }
+};
+
+/**
+ * 不動産物件を削除（MongoDB）
+ */
+export const deleteProperty = async (id: string): Promise<IProperty | null> => {
+  try {
+    return await Property.findByIdAndDelete(id).lean();
+  } catch (error: any) {
+    throw new Error(`物件の削除に失敗しました: ${error.message}`);
+  }
 };

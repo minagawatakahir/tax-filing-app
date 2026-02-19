@@ -138,3 +138,64 @@ export const deleteCapitalGainRecordHandler = async (req: Request, res: Response
     });
   }
 };
+
+/**
+ * TX-35: 譲渡所得一覧PDF出力
+ */
+export const exportCapitalGainListPDF = async (req: Request, res: Response) => {
+  try {
+    const year = parseInt(req.query.year as string);
+
+    if (!year) {
+      return res.status(400).json({
+        success: false,
+        error: 'year parameter is required',
+      });
+    }
+
+    // データ取得
+    const { getCapitalGainRecords } = await import('../services/capitalGainStorageService');
+    const records = await getCapitalGainRecords({});
+
+    // 指定年度のレコードをフィルタリング
+    const filteredRecords = records.filter((r: any) => r.result?.fiscalYear === year);
+
+    if (filteredRecords.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No capital gain records found for the specified year',
+      });
+    }
+
+    // 合計計算
+    const totalGain = filteredRecords.reduce((sum, r: any) => sum + (r.result?.transferIncome || 0), 0);
+
+    // PDF生成
+    const { generateCapitalGainListPDF } = await import('../services/pdfGenerationService');
+    const pdfStream = generateCapitalGainListPDF({
+      year,
+      properties: filteredRecords.map((r: any) => ({
+        propertyId: r.propertyId,
+        propertyName: r.propertyName || r.propertyId,
+        salePrice: r.result?.salePrice || 0,
+        acquisitionCost: r.result?.acquisitionCost || 0,
+        transferCost: r.result?.transferCost || 0,
+        gain: r.result?.transferIncome || 0,
+      })),
+      totalGain,
+    });
+
+    // レスポンスヘッダー設定
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=CapitalGain_${year}.pdf`);
+
+    // PDFをストリーム出力
+    pdfStream.pipe(res);
+  } catch (error: any) {
+    console.error('Error exporting capital gain PDF:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export capital gain PDF: ' + error.message,
+    });
+  }
+};

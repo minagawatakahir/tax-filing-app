@@ -1,5 +1,8 @@
 import express from 'express';
-import { calculateCapitalGainHandler } from '../controllers/capitalGainController';
+import { 
+  calculateCapitalGainHandler,
+  exportCapitalGainListPDF,
+} from '../controllers/capitalGainController';
 
 const router = express.Router();
 
@@ -8,5 +11,11 @@ const router = express.Router();
  * 譲渡所得を計算
  */
 router.post('/calculate', calculateCapitalGainHandler);
+
+/**
+ * GET /api/capital-gain/export-pdf?year=2026
+ * TX-35: 譲渡所得一覧をPDF出力
+ */
+router.get('/export-pdf', exportCapitalGainListPDF);
 
 export default router;
