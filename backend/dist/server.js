@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const database_1 = require("./config/database");
+const rsuExchangeService_1 = require("./services/rsuExchangeService");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ const taxRoutes_1 = __importDefault(require("./routes/taxRoutes"));
 const rsuRoutes_1 = __importDefault(require("./routes/rsuRoutes"));
 const realEstateRoutes_1 = __importDefault(require("./routes/realEstateRoutes"));
 const realEstateIncomeRoutes_1 = __importDefault(require("./routes/realEstateIncomeRoutes"));
+const realEstateIncomeListRoutes_1 = __importDefault(require("./routes/realEstateIncomeListRoutes"));
 const depreciationRoutes_1 = __importDefault(require("./routes/depreciationRoutes"));
 const taxExemptionRoutes_1 = __importDefault(require("./routes/taxExemptionRoutes"));
 const documentRoutes_1 = __importDefault(require("./routes/documentRoutes"));
@@ -52,6 +54,7 @@ app.use('/api/capital-gain', capitalGainStorageRoutes_1.default);
 app.use('/api/rsu', rsuRoutes_1.default);
 app.use('/api/real-estate', realEstateRoutes_1.default);
 app.use('/api/real-estate-income', realEstateIncomeRoutes_1.default);
+app.use('/api/real-estate-income-list', realEstateIncomeListRoutes_1.default);
 app.use('/api/depreciation', depreciationRoutes_1.default);
 app.use('/api/tax-exemption', taxExemptionRoutes_1.default);
 app.use('/api/documents', documentRoutes_1.default);
@@ -67,6 +70,9 @@ app.use((err, req, res, next) => {
 // データベース接続とサーバー起動
 const startServer = async () => {
     try {
+        // TX-22: TTMレートキャッシュ初期化
+        console.log('🔄 Initializing TTM rate cache...');
+        (0, rsuExchangeService_1.initializeTTMRateCache)();
         // MongoDBに接続（オプション：環境変数でMONGODB_URIが設定されている場合のみ）
         if (process.env.MONGODB_URI) {
             await (0, database_1.connectDatabase)();

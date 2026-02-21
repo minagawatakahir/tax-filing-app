@@ -3,6 +3,7 @@ import { CapitalGainCalculation } from './capitalGainService';
 
 export interface SaveCapitalGainRecordParams {
   userId?: string;
+  fiscalYear: number; // 追加: 確定申告年度
   propertyId: string;
   input: {
     propertyId: string;
@@ -25,6 +26,7 @@ export const saveCapitalGainRecord = async (
 
 export const getCapitalGainRecords = async (filters: {
   userId?: string;
+  fiscalYear?: number; // 追加: 確定申告年度フィルタ
   propertyId?: string;
   startDate?: Date;
   endDate?: Date;
@@ -33,6 +35,10 @@ export const getCapitalGainRecords = async (filters: {
 
   if (filters.userId) {
     query.userId = filters.userId;
+  }
+
+  if (filters.fiscalYear) {
+    query.fiscalYear = filters.fiscalYear;
   }
 
   if (filters.propertyId) {

@@ -16,4 +16,9 @@ router.post('/calculate', realEstateIncomeController_1.calculateSinglePropertyIn
  * 複数物件の不動産所得を一括計算
  */
 router.post('/portfolio', realEstateIncomeController_1.calculatePortfolioIncomeHandler);
+/**
+ * GET /api/real-estate-income/export-pdf?year=2026
+ * TX-35: 不動産所得一覧をPDF出力
+ */
+router.get('/export-pdf', realEstateIncomeController_1.exportRealEstateIncomePDF);
 exports.default = router;

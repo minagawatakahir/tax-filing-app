@@ -1,9 +1,42 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculatePortfolioIncomeHandler = exports.calculateSinglePropertyIncomeHandler = void 0;
+exports.exportRealEstateIncomePDF = exports.calculatePortfolioIncomeHandler = exports.calculateSinglePropertyIncomeHandler = void 0;
 const realEstateIncomeService_1 = require("../services/realEstateIncomeService");
 const Property_1 = __importDefault(require("../models/Property"));
 /**
@@ -152,3 +185,58 @@ const calculatePortfolioIncomeHandler = async (req, res) => {
     }
 };
 exports.calculatePortfolioIncomeHandler = calculatePortfolioIncomeHandler;
+/**
+ * TX-35: 不動産所得一覧PDF出力
+ */
+const exportRealEstateIncomePDF = async (req, res) => {
+    try {
+        const year = parseInt(req.query.year);
+        if (!year) {
+            return res.status(400).json({
+                success: false,
+                error: 'year parameter is required',
+            });
+        }
+        // データ取得
+        const { getRealEstateIncomeByFiscalYear } = await Promise.resolve().then(() => __importStar(require('../services/realEstateIncomeStorageService')));
+        const records = await getRealEstateIncomeByFiscalYear(year);
+        if (records.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'No real estate income records found for the specified year',
+            });
+        }
+        // 合計計算
+        const totalIncome = records.reduce((sum, r) => sum + r.totalIncome, 0);
+        const totalExpenses = records.reduce((sum, r) => sum + r.totalExpenses, 0);
+        const totalNetIncome = records.reduce((sum, r) => sum + r.realEstateIncome, 0);
+        // PDF生成
+        const { generateRealEstateIncomeListPDF } = await Promise.resolve().then(() => __importStar(require('../services/pdfGenerationService')));
+        const pdfStream = generateRealEstateIncomeListPDF({
+            year,
+            properties: records.map(r => ({
+                propertyId: r.propertyId,
+                propertyName: r.propertyName,
+                rentalIncome: r.totalIncome,
+                expenses: r.totalExpenses,
+                netIncome: r.realEstateIncome,
+            })),
+            totalIncome,
+            totalExpenses,
+            totalNetIncome,
+        });
+        // レスポンスヘッダー設定
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=RealEstateIncome_${year}.pdf`);
+        // PDFをストリーム出力
+        pdfStream.pipe(res);
+    }
+    catch (error) {
+        console.error('Error exporting real estate income PDF:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to export real estate income PDF: ' + error.message,
+        });
+    }
+};
+exports.exportRealEstateIncomePDF = exportRealEstateIncomePDF;

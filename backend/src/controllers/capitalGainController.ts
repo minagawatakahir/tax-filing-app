@@ -46,19 +46,20 @@ export const calculateCapitalGainHandler = async (req: Request, res: Response) =
  */
 export const saveCapitalGainHandler = async (req: Request, res: Response) => {
   try {
-    const { propertyId, input, result } = req.body;
+    const { fiscalYear, propertyId, input, result } = req.body;
     const userId = (req as any).userId || 'demo-user';
 
     // バリデーション
-    if (!input || !result) {
+    if (!fiscalYear || !input || !result) {
       return res.status(400).json({
         success: false,
-        error: '入力値と計算結果は必須です',
+        error: '年度、入力値と計算結果は必須です',
       });
     }
 
     const savedRecord = await saveCapitalGainRecord({
       userId,
+      fiscalYear,
       propertyId,
       input,
       result,
@@ -68,6 +69,7 @@ export const saveCapitalGainHandler = async (req: Request, res: Response) => {
       success: true,
       data: {
         id: savedRecord._id,
+        fiscalYear: savedRecord.fiscalYear,
         propertyId: savedRecord.propertyId,
         createdAt: savedRecord.createdAt,
       },
@@ -87,9 +89,10 @@ export const saveCapitalGainHandler = async (req: Request, res: Response) => {
 export const getCapitalGainRecordsHandler = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'demo-user';
-    const { propertyId, startDate, endDate } = req.query;
+    const { fiscalYear, propertyId, startDate, endDate } = req.query;
 
     const filters: any = {};
+    if (fiscalYear) filters.fiscalYear = parseInt(fiscalYear as string);
     if (propertyId) filters.propertyId = propertyId as string;
     if (startDate) filters.startDate = new Date(startDate as string);
     if (endDate) filters.endDate = new Date(endDate as string);
@@ -155,12 +158,9 @@ export const exportCapitalGainListPDF = async (req: Request, res: Response) => {
 
     // データ取得
     const { getCapitalGainRecords } = await import('../services/capitalGainStorageService');
-    const records = await getCapitalGainRecords({});
+    const records = await getCapitalGainRecords({ fiscalYear: year });
 
-    // 指定年度のレコードをフィルタリング
-    const filteredRecords = records.filter((r: any) => r.result?.fiscalYear === year);
-
-    if (filteredRecords.length === 0) {
+    if (records.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'No capital gain records found for the specified year',
@@ -168,19 +168,19 @@ export const exportCapitalGainListPDF = async (req: Request, res: Response) => {
     }
 
     // 合計計算
-    const totalGain = filteredRecords.reduce((sum, r: any) => sum + (r.result?.transferIncome || 0), 0);
+    const totalGain = records.reduce((sum, r: any) => sum + (r.result?.capitalGain || 0), 0);
 
     // PDF生成
     const { generateCapitalGainListPDF } = await import('../services/pdfGenerationService');
     const pdfStream = generateCapitalGainListPDF({
       year,
-      properties: filteredRecords.map((r: any) => ({
+      properties: records.map((r: any) => ({
         propertyId: r.propertyId,
-        propertyName: r.propertyName || r.propertyId,
-        salePrice: r.result?.salePrice || 0,
-        acquisitionCost: r.result?.acquisitionCost || 0,
-        transferCost: r.result?.transferCost || 0,
-        gain: r.result?.transferIncome || 0,
+        propertyName: `Property ${r.propertyId}`,
+        salePrice: r.input?.salePrice || 0,
+        acquisitionCost: r.input?.acquisitionCost || 0,
+        transferCost: r.input?.sellingExpenses || 0,
+        gain: r.result?.capitalGain || 0,
       })),
       totalGain,
     });

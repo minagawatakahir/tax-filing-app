@@ -15,6 +15,45 @@ const HISTORICAL_DATA_CACHE = path.join(__dirname, '../../cache/ttm_rates.json')
 // TTMレートキャッシュ（メモリ内）
 let ttmRateCache: Map<string, number> = new Map();
 
+/**
+ * ファイルキャッシュの初期化
+ * サーバー起動時に呼び出される
+ */
+const initializeFileCache = (): void => {
+  try {
+    if (fs.existsSync(HISTORICAL_DATA_CACHE)) {
+      const cachedData = JSON.parse(fs.readFileSync(HISTORICAL_DATA_CACHE, 'utf-8'));
+      Object.entries(cachedData).forEach(([dateKey, rate]) => {
+        ttmRateCache.set(dateKey, rate as number);
+      });
+      console.log(`✅ Loaded ${ttmRateCache.size} cached TTM rates from file`);
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to load file cache, starting with empty cache:', error);
+  }
+};
+
+/**
+ * ファイルキャッシュに保存
+ */
+const saveFileCache = (): void => {
+  try {
+    const cacheDir = path.dirname(HISTORICAL_DATA_CACHE);
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const cacheData = Object.fromEntries(ttmRateCache);
+    fs.writeFileSync(
+      HISTORICAL_DATA_CACHE,
+      JSON.stringify(cacheData, null, 2),
+      'utf-8'
+    );
+  } catch (error) {
+    console.error('Failed to save TTM rate cache to file:', error);
+  }
+};
+
 export interface RSUVestingData {
   vestingDate: Date;
   shares: number;
@@ -56,6 +95,7 @@ const getCachedTTMRate = (date: Date): number | null => {
 const cacheTTMRate = (date: Date, rate: number): void => {
   const dateKey = format(date, 'yyyy-MM-dd');
   ttmRateCache.set(dateKey, rate);
+  saveFileCache(); // ファイルにも保存
 };
 
 /**
@@ -386,4 +426,11 @@ export const aggregateAnnualRSUIncome = async (
     vestingCount: calculations.length,
     calculations,
   };
+};
+
+/**
+ * TX-22: キャッシュ初期化（サーバー起動時に呼び出す）
+ */
+export const initializeTTMRateCache = (): void => {
+  initializeFileCache();
 };

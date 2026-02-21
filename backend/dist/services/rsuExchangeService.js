@@ -36,9 +36,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateAnnualRSUIncome = exports.calculateBatchRSUTax = exports.calculateRSUTax = exports.getBatchTTMRates = exports.getTTMRate = void 0;
+exports.initializeTTMRateCache = exports.aggregateAnnualRSUIncome = exports.calculateBatchRSUTax = exports.calculateRSUTax = exports.getBatchTTMRates = exports.getTTMRate = void 0;
 const axios_1 = __importDefault(require("axios"));
 const date_fns_1 = require("date-fns");
+const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 /**
  * RSU為替自動連携サービス
@@ -49,6 +50,40 @@ const EXCHANGE_RATE_API = 'https://api.exchangerate-api.com/v4/latest/USD';
 const HISTORICAL_DATA_CACHE = path.join(__dirname, '../../cache/ttm_rates.json');
 // TTMレートキャッシュ（メモリ内）
 let ttmRateCache = new Map();
+/**
+ * ファイルキャッシュの初期化
+ * サーバー起動時に呼び出される
+ */
+const initializeFileCache = () => {
+    try {
+        if (fs.existsSync(HISTORICAL_DATA_CACHE)) {
+            const cachedData = JSON.parse(fs.readFileSync(HISTORICAL_DATA_CACHE, 'utf-8'));
+            Object.entries(cachedData).forEach(([dateKey, rate]) => {
+                ttmRateCache.set(dateKey, rate);
+            });
+            console.log(`✅ Loaded ${ttmRateCache.size} cached TTM rates from file`);
+        }
+    }
+    catch (error) {
+        console.warn('⚠️ Failed to load file cache, starting with empty cache:', error);
+    }
+};
+/**
+ * ファイルキャッシュに保存
+ */
+const saveFileCache = () => {
+    try {
+        const cacheDir = path.dirname(HISTORICAL_DATA_CACHE);
+        if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+        }
+        const cacheData = Object.fromEntries(ttmRateCache);
+        fs.writeFileSync(HISTORICAL_DATA_CACHE, JSON.stringify(cacheData, null, 2), 'utf-8');
+    }
+    catch (error) {
+        console.error('Failed to save TTM rate cache to file:', error);
+    }
+};
 /**
  * キャッシュから日付のTTMレートを取得
  * @param date 取得日
@@ -66,6 +101,7 @@ const getCachedTTMRate = (date) => {
 const cacheTTMRate = (date, rate) => {
     const dateKey = (0, date_fns_1.format)(date, 'yyyy-MM-dd');
     ttmRateCache.set(dateKey, rate);
+    saveFileCache(); // ファイルにも保存
 };
 /**
  * Open Exchange Rates APIから過去のレートを取得
@@ -350,3 +386,10 @@ const aggregateAnnualRSUIncome = async (vestingDataList, year) => {
     };
 };
 exports.aggregateAnnualRSUIncome = aggregateAnnualRSUIncome;
+/**
+ * TX-22: キャッシュ初期化（サーバー起動時に呼び出す）
+ */
+const initializeTTMRateCache = () => {
+    initializeFileCache();
+};
+exports.initializeTTMRateCache = initializeTTMRateCache;

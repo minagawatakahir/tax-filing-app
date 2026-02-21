@@ -158,6 +158,18 @@ const PropertySchema = new mongoose_1.Schema({
     loanProcessingFee: {
         type: Number,
     },
+    // TX-36: 売却情報（年度別所得計算のフィルタリング用）
+    saleDate: {
+        type: Date,
+    },
+    salePrice: {
+        type: Number,
+    },
+    saleStatus: {
+        type: String,
+        enum: ['active', 'sold', 'archived'],
+        default: 'active',
+    },
 }, {
     timestamps: true,
 });
