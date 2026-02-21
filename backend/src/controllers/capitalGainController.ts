@@ -22,12 +22,12 @@ export const getSoldPropertiesHandler = async (req: Request, res: Response) => {
       success: true,
       properties: soldProperties.map(p => ({
         propertyId: p.propertyId,
-        name: p.name,
-        address: p.address,
-        saleDate: p.saleDate,
-        salePrice: p.salePrice,
-        acquisitionDate: p.acquisitionDate,
-        acquisitionCost: p.acquisitionCost,
+        propertyName: (p as any).propertyName || (p as any).name || 'Property',
+        address: (p as any).address || '',
+        saleDate: (p as any).saleDate,
+        salePrice: (p as any).salePrice,
+        acquisitionDate: (p as any).acquisitionDate,
+        acquisitionCost: (p as any).acquisitionCost,
       })),
     });
   } catch (error: any) {

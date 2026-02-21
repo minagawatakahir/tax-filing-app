@@ -154,7 +154,8 @@ export const deleteSalaryIncomeRecordHandler = async (req: Request, res: Respons
  */
 export const exportSalaryIncomeCSVHandler = async (req: Request, res: Response) => {
   try {
-    const year = parseInt(req.params.year);
+    const yearParam = Array.isArray(req.params.year) ? req.params.year[0] : req.params.year;
+    const year = parseInt(yearParam as string);
     const userId = (req as any).userId || 'demo-user';
 
     if (!year || isNaN(year)) {
