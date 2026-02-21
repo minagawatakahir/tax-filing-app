@@ -7,7 +7,13 @@
     "dev": "ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:properties": "ts-node test-data/seed-test-data.ts",
+    "seed:salary": "ts-node test-data/seed-salary-income.ts",
+    "seed:rsu": "ts-node test-data/seed-rsu-income.ts",
+    "seed:capital-gain": "ts-node test-data/seed-capital-gain.ts",
+    "seed:real-estate": "ts-node test-data/seed-real-estate-income.ts",
+    "seed:all": "ts-node test-data/seed-all.ts"
   },
   "keywords": [],
   "author": "",
