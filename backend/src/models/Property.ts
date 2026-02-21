@@ -43,6 +43,10 @@ export interface IProperty extends Document {
   }>;
   // TX-32: ローン手数料
   loanProcessingFee?: number; // ローン手数料（初年度のみ）
+  // TX-36: 売却情報（年度別所得計算のフィルタリング用）
+  saleDate?: Date; // 売却日（この日付以降は不動産所得が発生しない）
+  salePrice?: number; // 売却価格
+  saleStatus?: 'active' | 'sold' | 'archived'; // 物件状態: active=賃貸中, sold=売却済み, archived=アーカイブ
   createdAt: Date;
   updatedAt: Date;
 }
@@ -171,6 +175,18 @@ const PropertySchema: Schema = new Schema(
     // TX-32: ローン手数料
     loanProcessingFee: {
       type: Number,
+    },
+    // TX-36: 売却情報（年度別所得計算のフィルタリング用）
+    saleDate: {
+      type: Date,
+    },
+    salePrice: {
+      type: Number,
+    },
+    saleStatus: {
+      type: String,
+      enum: ['active', 'sold', 'archived'],
+      default: 'active',
     },
   },
   {
