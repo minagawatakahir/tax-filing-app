@@ -31,57 +31,6 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/real-estate-income-list/:year
- * 年度別不動産所得一覧を取得
- */
-router.get('/:year', async (req: Request, res: Response) => {
-  try {
-    const year = parseInt(req.params.year as string);
-    const records = await getRealEstateIncomeByFiscalYear(year);
-    const summary = await calculateFiscalYearTotal(year);
-    
-    res.json({
-      success: true,
-      records,
-      summary,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-/**
- * DELETE /api/real-estate-income-list/:id
- * 不動産所得データを削除
- */
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = req.params.id as string;
-    const deleted = await deleteRealEstateIncome(id);
-    
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        error: 'Record not found',
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Record deleted successfully',
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-/**
  * GET /api/real-estate-income-list/export-pdf/:year
  * 不動産所得一覧をPDF形式で出力
  */

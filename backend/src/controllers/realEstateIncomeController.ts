@@ -219,7 +219,7 @@ export const exportRealEstateIncomePDF = async (
 
     // データ取得
     const { getRealEstateIncomeByFiscalYear } = await import('../services/realEstateIncomeStorageService');
-    const records = getRealEstateIncomeByFiscalYear(year);
+    const records = await getRealEstateIncomeByFiscalYear(year);
 
     if (records.length === 0) {
       return res.status(404).json({

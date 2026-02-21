@@ -2,8 +2,41 @@
 /**
  * 譲渡所得計算コントローラー
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCapitalGainRecordHandler = exports.getCapitalGainRecordsHandler = exports.saveCapitalGainHandler = exports.calculateCapitalGainHandler = void 0;
+exports.exportCapitalGainListPDF = exports.deleteCapitalGainRecordHandler = exports.getCapitalGainRecordsHandler = exports.saveCapitalGainHandler = exports.calculateCapitalGainHandler = void 0;
 const capitalGainService_1 = require("../services/capitalGainService");
 const capitalGainStorageService_1 = require("../services/capitalGainStorageService");
 /**
@@ -40,17 +73,18 @@ exports.calculateCapitalGainHandler = calculateCapitalGainHandler;
  */
 const saveCapitalGainHandler = async (req, res) => {
     try {
-        const { propertyId, input, result } = req.body;
+        const { fiscalYear, propertyId, input, result } = req.body;
         const userId = req.userId || 'demo-user';
         // バリデーション
-        if (!input || !result) {
+        if (!fiscalYear || !input || !result) {
             return res.status(400).json({
                 success: false,
-                error: '入力値と計算結果は必須です',
+                error: '年度、入力値と計算結果は必須です',
             });
         }
         const savedRecord = await (0, capitalGainStorageService_1.saveCapitalGainRecord)({
             userId,
+            fiscalYear,
             propertyId,
             input,
             result,
@@ -59,6 +93,7 @@ const saveCapitalGainHandler = async (req, res) => {
             success: true,
             data: {
                 id: savedRecord._id,
+                fiscalYear: savedRecord.fiscalYear,
                 propertyId: savedRecord.propertyId,
                 createdAt: savedRecord.createdAt,
             },
@@ -79,8 +114,10 @@ exports.saveCapitalGainHandler = saveCapitalGainHandler;
 const getCapitalGainRecordsHandler = async (req, res) => {
     try {
         const userId = req.userId || 'demo-user';
-        const { propertyId, startDate, endDate } = req.query;
+        const { fiscalYear, propertyId, startDate, endDate } = req.query;
         const filters = {};
+        if (fiscalYear)
+            filters.fiscalYear = parseInt(fiscalYear);
         if (propertyId)
             filters.propertyId = propertyId;
         if (startDate)
@@ -130,3 +167,55 @@ const deleteCapitalGainRecordHandler = async (req, res) => {
     }
 };
 exports.deleteCapitalGainRecordHandler = deleteCapitalGainRecordHandler;
+/**
+ * TX-35: 譲渡所得一覧PDF出力
+ */
+const exportCapitalGainListPDF = async (req, res) => {
+    try {
+        const year = parseInt(req.query.year);
+        if (!year) {
+            return res.status(400).json({
+                success: false,
+                error: 'year parameter is required',
+            });
+        }
+        // データ取得
+        const { getCapitalGainRecords } = await Promise.resolve().then(() => __importStar(require('../services/capitalGainStorageService')));
+        const records = await getCapitalGainRecords({ fiscalYear: year });
+        if (records.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'No capital gain records found for the specified year',
+            });
+        }
+        // 合計計算
+        const totalGain = records.reduce((sum, r) => sum + (r.result?.capitalGain || 0), 0);
+        // PDF生成
+        const { generateCapitalGainListPDF } = await Promise.resolve().then(() => __importStar(require('../services/pdfGenerationService')));
+        const pdfStream = generateCapitalGainListPDF({
+            year,
+            properties: records.map((r) => ({
+                propertyId: r.propertyId,
+                propertyName: `Property ${r.propertyId}`,
+                salePrice: r.input?.salePrice || 0,
+                acquisitionCost: r.input?.acquisitionCost || 0,
+                transferCost: r.input?.sellingExpenses || 0,
+                gain: r.result?.capitalGain || 0,
+            })),
+            totalGain,
+        });
+        // レスポンスヘッダー設定
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=CapitalGain_${year}.pdf`);
+        // PDFをストリーム出力
+        pdfStream.pipe(res);
+    }
+    catch (error) {
+        console.error('Error exporting capital gain PDF:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to export capital gain PDF: ' + error.message,
+        });
+    }
+};
+exports.exportCapitalGainListPDF = exportCapitalGainListPDF;

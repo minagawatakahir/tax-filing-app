@@ -37,6 +37,7 @@ exports.CapitalGainRecord = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const CapitalGainRecordSchema = new mongoose_1.Schema({
     userId: { type: String, required: false, default: 'demo-user' },
+    fiscalYear: { type: Number, required: true }, // 追加: 確定申告年度
     propertyId: { type: String, required: true },
     input: {
         propertyId: { type: String, required: true },
@@ -58,4 +59,6 @@ const CapitalGainRecordSchema = new mongoose_1.Schema({
 }, {
     timestamps: true,
 });
+// 年度とuserIdの複合インデックスで高速検索
+CapitalGainRecordSchema.index({ userId: 1, fiscalYear: 1 });
 exports.CapitalGainRecord = mongoose_1.default.model('CapitalGainRecord', CapitalGainRecordSchema);

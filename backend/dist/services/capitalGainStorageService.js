@@ -12,6 +12,9 @@ const getCapitalGainRecords = async (filters) => {
     if (filters.userId) {
         query.userId = filters.userId;
     }
+    if (filters.fiscalYear) {
+        query.fiscalYear = filters.fiscalYear;
+    }
     if (filters.propertyId) {
         query.propertyId = filters.propertyId;
     }

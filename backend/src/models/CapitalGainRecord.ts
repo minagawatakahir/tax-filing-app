@@ -3,6 +3,7 @@ import { CapitalGainCalculation } from '../services/capitalGainService';
 
 export interface ICapitalGainRecord extends Document {
   userId: string;
+  fiscalYear: number; // 追加: 確定申告年度
   propertyId: string;
   input: {
     propertyId: string;
@@ -20,6 +21,7 @@ export interface ICapitalGainRecord extends Document {
 const CapitalGainRecordSchema = new Schema<ICapitalGainRecord>(
   {
     userId: { type: String, required: false, default: 'demo-user' },
+    fiscalYear: { type: Number, required: true }, // 追加: 確定申告年度
     propertyId: { type: String, required: true },
     input: {
       propertyId: { type: String, required: true },
@@ -43,6 +45,9 @@ const CapitalGainRecordSchema = new Schema<ICapitalGainRecord>(
     timestamps: true,
   }
 );
+
+// 年度とuserIdの複合インデックスで高速検索
+CapitalGainRecordSchema.index({ userId: 1, fiscalYear: 1 });
 
 export const CapitalGainRecord = mongoose.model<ICapitalGainRecord>(
   'CapitalGainRecord',
