@@ -4,11 +4,40 @@
 
 import { Request, Response } from 'express';
 import { calculateCapitalGain, CapitalGainInput } from '../services/capitalGainService';
+import Property from '../models/Property';
 import {
   saveCapitalGainRecord,
   getCapitalGainRecords,
   deleteCapitalGainRecord,
 } from '../services/capitalGainStorageService';
+
+/**
+ * TX-39: 売却済み物件の一覧を取得
+ */
+export const getSoldPropertiesHandler = async (req: Request, res: Response) => {
+  try {
+    const soldProperties = await Property.find({ saleStatus: 'sold' });
+    
+    res.json({
+      success: true,
+      properties: soldProperties.map(p => ({
+        propertyId: p.propertyId,
+        name: p.name,
+        address: p.address,
+        saleDate: p.saleDate,
+        salePrice: p.salePrice,
+        acquisitionDate: p.acquisitionDate,
+        acquisitionCost: p.acquisitionCost,
+      })),
+    });
+  } catch (error: any) {
+    console.error('Error fetching sold properties:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '売却済み物件の取得に失敗しました',
+    });
+  }
+};
 
 /**
  * 譲渡所得計算ハンドラー
