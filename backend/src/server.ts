@@ -2,6 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDatabase } from './config/database';
+import { initializeTTMRateCache } from './services/rsuExchangeService';
 
 dotenv.config();
 
@@ -72,6 +73,10 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // データベース接続とサーバー起動
 const startServer = async () => {
   try {
+    // TX-22: TTMレートキャッシュ初期化
+    console.log('🔄 Initializing TTM rate cache...');
+    initializeTTMRateCache();
+    
     // MongoDBに接続（オプション：環境変数でMONGODB_URIが設定されている場合のみ）
     if (process.env.MONGODB_URI) {
       await connectDatabase();
