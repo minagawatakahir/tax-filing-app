@@ -51,7 +51,7 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
       const result = await createProperty(mockPropertyData);
 
       expect(result).toBeDefined();
-      expect(result?.propertyName).toBe(mockPropertyData.propertyName);
+      expect(result.propertyName).toBe(mockPropertyData.propertyName);
       expect(result.address).toBe(mockPropertyData.address);
     });
 
@@ -88,7 +88,7 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
 
       const result = await createProperty(mockPropertyData);
 
-      expect(result?.propertyName).toBe(mockPropertyData.propertyName);
+      expect(result.propertyName).toBe(mockPropertyData.propertyName);
       expect(result.address).toBe(mockPropertyData.address);
       expect(result.category).toBe(mockPropertyData.category);
       expect(result.totalValue).toBe(mockPropertyData.totalValue);
@@ -105,21 +105,17 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
 
   describe('getPropertyById', () => {
     test('IDで物件を取得できる', async () => {
-      MockedProperty.findById = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockProperty),
-      } as any);
+      MockedProperty.findById = jest.fn().mockResolvedValue(mockProperty);
 
       const result = await getPropertyById('507f1f77bcf86cd799439011');
 
       expect(result).toBeDefined();
-      expect(result?._id).toBe(mockProperty._id);
-      expect(result?.propertyName).toBe(mockProperty.propertyName);
+      expect(result._id).toBe(mockProperty._id);
+      expect(result.propertyName).toBe(mockProperty.propertyName);
     });
 
     test('存在しない物件はnullを返す', async () => {
-      MockedProperty.findById = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      } as any);
+      MockedProperty.findById = jest.fn().mockResolvedValue(null);
 
       const result = await getPropertyById('invalid-id');
 
@@ -142,37 +138,31 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
         propertyName: '新しい物件名',
       };
 
-      MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue({
-          ...mockProperty,
-          propertyName: '新しい物件名',
-        }),
-      } as any);
+      MockedProperty.findByIdAndUpdate = jest.fn().mockResolvedValue({
+        ...mockProperty,
+        propertyName: '新しい物件名',
+      });
 
       const result = await updateProperty('507f1f77bcf86cd799439011', updatedData);
 
-      expect(result?.propertyName).toBe('新しい物件名');
+      expect(result.propertyName).toBe('新しい物件名');
     });
 
     test('部分更新ができる', async () => {
-      MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue({
-          ...mockProperty,
-          outstandingLoan: 35000000,
-        }),
-      } as any);
+      MockedProperty.findByIdAndUpdate = jest.fn().mockResolvedValue({
+        ...mockProperty,
+        outstandingLoan: 35000000,
+      });
 
       const result = await updateProperty('507f1f77bcf86cd799439011', {
         outstandingLoan: 35000000,
       });
 
-      expect(result?.outstandingLoan).toBe(35000000);
+      expect(result.outstandingLoan).toBe(35000000);
     });
 
     test('存在しない物件の更新はnullを返す', async () => {
-      MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      } as any);
+      MockedProperty.findByIdAndUpdate = jest.fn().mockResolvedValue(null);
 
       const result = await updateProperty('invalid-id', mockPropertyData);
 
@@ -192,20 +182,16 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
 
   describe('deleteProperty', () => {
     test('物件を削除できる', async () => {
-      MockedProperty.findByIdAndDelete = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockProperty),
-      } as any);
+      MockedProperty.findByIdAndDelete = jest.fn().mockResolvedValue(mockProperty);
 
       const result = await deleteProperty('507f1f77bcf86cd799439011');
 
       expect(result).toBeDefined();
-      expect(result?._id).toBe(mockProperty._id);
+      expect(result._id).toBe(mockProperty._id);
     });
 
     test('存在しない物件の削除はnullを返す', async () => {
-      MockedProperty.findByIdAndDelete = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      } as any);
+      MockedProperty.findByIdAndDelete = jest.fn().mockResolvedValue(null);
 
       const result = await deleteProperty('invalid-id');
 
@@ -224,9 +210,7 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
   describe('getAllProperties', () => {
     test('すべての物件を取得できる', async () => {
       const mockProperties = [mockProperty, { ...mockProperty, _id: '507f1f77bcf86cd799439012' }];
-      MockedProperty.find = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockProperties),
-      } as any);
+      MockedProperty.find = jest.fn().mockResolvedValue(mockProperties);
 
       const result = await getAllProperties();
 
@@ -235,9 +219,7 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     });
 
     test('物件がない場合は空配列を返す', async () => {
-      MockedProperty.find = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue([]),
-      } as any);
+      MockedProperty.find = jest.fn().mockResolvedValue([]);
 
       const result = await getAllProperties();
 
@@ -253,6 +235,61 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     });
   });
 
+  describe('searchProperties', () => {
+    test('物件名で検索できる', async () => {
+      MockedProperty.find = jest.fn().mockResolvedValue([mockProperty]);
+
+      const result = await searchProperties({ propertyName: 'マンション' });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].propertyName).toContain('マンション');
+    });
+
+    test('住所で検索できる', async () => {
+      MockedProperty.find = jest.fn().mockResolvedValue([mockProperty]);
+
+      const result = await searchProperties({ address: '渋谷区' });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].address).toContain('渋谷区');
+    });
+
+    test('カテゴリで検索できる', async () => {
+      MockedProperty.find = jest.fn().mockResolvedValue([mockProperty]);
+
+      const result = await searchProperties({ category: 'residential' });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].category).toBe('residential');
+    });
+
+    test('複数条件で検索できる', async () => {
+      MockedProperty.find = jest.fn().mockResolvedValue([mockProperty]);
+
+      const result = await searchProperties({
+        propertyName: 'マンション',
+        category: 'residential',
+      });
+
+      expect(result).toHaveLength(1);
+    });
+
+    test('検索結果がない場合は空配列を返す', async () => {
+      MockedProperty.find = jest.fn().mockResolvedValue([]);
+
+      const result = await searchProperties({ propertyName: '存在しない物件' });
+
+      expect(result).toEqual([]);
+    });
+
+    test('エラー時に例外を投げる', async () => {
+      MockedProperty.find = jest.fn().mockRejectedValue(
+        new Error('Database error')
+      );
+
+      await expect(searchProperties({ propertyName: 'test' })).rejects.toThrow();
+    });
+  });
 
   describe('バリデーション', () => {
     test('必須フィールドが空の場合はエラーを投げる', async () => {

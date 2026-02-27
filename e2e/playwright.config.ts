@@ -13,6 +13,13 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
+  // webServer配置はローカルでは無効 - 別途サーバーを起動してテスト実行
+  // webServer: {
+  //   command: 'npm start',
+  //   url: 'http://localhost:3000',
+  //   reuseExistingServer: !process.env.CI,
+  // },
+
   projects: [
     {
       name: 'chromium',
