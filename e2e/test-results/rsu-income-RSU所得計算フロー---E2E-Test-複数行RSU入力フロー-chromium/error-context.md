@@ -1,0 +1,168 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - heading "📊 確定申告アシスタント" [level=1] [ref=e7]
+      - paragraph [ref=e8]: 高度な税務計算・資産管理システム
+    - generic [ref=e9]:
+      - generic [ref=e10]: "📅 確定申告年度:"
+      - combobox [ref=e11]:
+        - option "2026年" [selected]
+        - option "2025年"
+        - option "2024年"
+        - option "2023年"
+        - option "2022年"
+      - generic [ref=e12]: "選択中: 2026年"
+  - generic [ref=e13]:
+    - complementary [ref=e14]:
+      - generic [ref=e15]:
+        - heading "📊 メニュー" [level=2] [ref=e16]
+        - button "サイドバーを折りたたむ" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+      - navigation [ref=e20]:
+        - button "📊 ダッシュボード" [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: 📊
+          - generic [ref=e24]: ダッシュボード
+        - generic [ref=e25]:
+          - button "所得入力" [ref=e26] [cursor=pointer]:
+            - generic [ref=e27]: 所得入力
+            - img [ref=e28]
+          - generic [ref=e30]:
+            - button "🧮 基本計算" [active] [ref=e31] [cursor=pointer]:
+              - generic [ref=e32]: 🧮
+              - generic [ref=e33]: 基本計算
+            - button "💼 給与所得" [ref=e34] [cursor=pointer]:
+              - generic [ref=e35]: 💼
+              - generic [ref=e36]: 給与所得
+            - button "💱 RSU所得" [ref=e37] [cursor=pointer]:
+              - generic [ref=e38]: 💱
+              - generic [ref=e39]: RSU所得
+        - generic [ref=e40]:
+          - button "不動産・資産管理" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: 不動産・資産管理
+            - img [ref=e43]
+          - generic [ref=e45]:
+            - button "🏢 物件管理" [ref=e46] [cursor=pointer]:
+              - generic [ref=e47]: 🏢
+              - generic [ref=e48]: 物件管理
+            - button "🏠 不動産所得" [ref=e49] [cursor=pointer]:
+              - generic [ref=e50]: 🏠
+              - generic [ref=e51]: 不動産所得
+            - button "💰 物件売却" [ref=e52] [cursor=pointer]:
+              - generic [ref=e53]: 💰
+              - generic [ref=e54]: 物件売却
+        - generic [ref=e55]:
+          - button "レポート・一覧" [ref=e56] [cursor=pointer]:
+            - generic [ref=e57]: レポート・一覧
+            - img [ref=e58]
+          - generic [ref=e60]:
+            - button "📋 RSU所得管理" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]: 📋
+              - generic [ref=e63]: RSU所得管理
+            - button "📊 不動産所得一覧" [ref=e64] [cursor=pointer]:
+              - generic [ref=e65]: 📊
+              - generic [ref=e66]: 不動産所得一覧
+            - button "📈 売却所得一覧" [ref=e67] [cursor=pointer]:
+              - generic [ref=e68]: 📈
+              - generic [ref=e69]: 売却所得一覧
+    - main [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - heading "📊 収入" [level=2] [ref=e74]
+            - generic [ref=e75]:
+              - generic [ref=e76]:
+                - generic [ref=e77]: 事業所得（円）
+                - spinbutton [ref=e78]
+              - generic [ref=e79]:
+                - generic [ref=e80]: その他所得（円）
+                - spinbutton [ref=e81]
+          - generic [ref=e82]:
+            - heading "💰 経費" [level=2] [ref=e83]
+            - generic [ref=e84]:
+              - generic [ref=e85]:
+                - generic [ref=e86]: 家賃（円）
+                - spinbutton [ref=e87]
+              - generic [ref=e88]:
+                - generic [ref=e89]: 光熱費（円）
+                - spinbutton [ref=e90]
+              - generic [ref=e91]:
+                - generic [ref=e92]: 消耗品費（円）
+                - spinbutton [ref=e93]
+              - generic [ref=e94]:
+                - generic [ref=e95]: 旅費交通費（円）
+                - spinbutton [ref=e96]
+              - generic [ref=e97]:
+                - generic [ref=e98]: 通信費（円）
+                - spinbutton [ref=e99]
+              - generic [ref=e100]:
+                - generic [ref=e101]: その他経費（円）
+                - spinbutton [ref=e102]
+          - button "税額を計算する" [ref=e104] [cursor=pointer]
+        - generic [ref=e106]:
+          - paragraph [ref=e107]: 👋 収入と経費を入力すると、自動で税額を計算します
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]: ⚡
+              - paragraph [ref=e111]: 簡単入力
+            - generic [ref=e112]:
+              - generic [ref=e113]: 🧮
+              - paragraph [ref=e114]: 自動計算
+            - generic [ref=e115]:
+              - generic [ref=e116]: 💡
+              - paragraph [ref=e117]: 節税提案
+        - button "📁 保存済み計算 (0)" [ref=e119] [cursor=pointer]
+        - generic [ref=e121]:
+          - generic [ref=e122]:
+            - generic [ref=e123]: 👋
+            - heading "📊 確定申告アシスタントへようこそ！" [level=2] [ref=e125]
+          - paragraph [ref=e126]: このアプリケーションは、複雑な税務計算を簡単にしてくれます。
+          - generic [ref=e127]:
+            - button "← 戻る" [disabled] [ref=e128]
+            - generic [ref=e129]:
+              - button "Go to step 0" [ref=e130] [cursor=pointer]
+              - button "Go to step 1" [ref=e131] [cursor=pointer]
+              - button "Go to step 2" [ref=e132] [cursor=pointer]
+              - button "Go to step 3" [ref=e133] [cursor=pointer]
+            - button "次へ →" [ref=e134] [cursor=pointer]
+          - button "スキップ" [ref=e135] [cursor=pointer]
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - heading "🎯 次のステップ" [level=3] [ref=e138]:
+              - generic [ref=e139]: 🎯
+              - generic [ref=e140]: 次のステップ
+            - button "✕" [ref=e141] [cursor=pointer]
+          - list [ref=e142]:
+            - listitem [ref=e143]:
+              - generic [ref=e144]: "1"
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]: 🏢
+                  - strong [ref=e148]: 物件管理
+                - paragraph [ref=e149]: 不動産物件を登録
+            - listitem [ref=e150]:
+              - generic [ref=e151]: "2"
+              - generic [ref=e152]:
+                - generic [ref=e153]:
+                  - generic [ref=e154]: 💼
+                  - strong [ref=e155]: 所得入力
+                - paragraph [ref=e156]: 給与やRSUの所得を入力
+            - listitem [ref=e157]:
+              - generic [ref=e158]: "3"
+              - generic [ref=e159]:
+                - generic [ref=e160]:
+                  - generic [ref=e161]: 🏠
+                  - strong [ref=e162]: 不動産所得
+                - paragraph [ref=e163]: 物件ごとの所得を計算
+            - listitem [ref=e164]:
+              - generic [ref=e165]: "4"
+              - generic [ref=e166]:
+                - generic [ref=e167]:
+                  - generic [ref=e168]: 📊
+                  - strong [ref=e169]: レポート
+                - paragraph [ref=e170]: 結果をエクスポート
+          - paragraph [ref=e172]: 💡 各タブにマウスを合わせると、詳しい説明が表示されます
+      - paragraph [ref=e175]: © 2024 確定申告アシスタント | 正確な税務申告については税理士にご相談ください
+```

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteSalaryIncomeRecordHandler = exports.getSalaryIncomeRecordsHandler = exports.saveSalaryIncomeHandler = exports.calculateSalaryIncomeHandler = void 0;
+exports.exportSalaryIncomeCSVHandler = exports.deleteSalaryIncomeRecordHandler = exports.getSalaryIncomeRecordsHandler = exports.saveSalaryIncomeHandler = exports.calculateSalaryIncomeHandler = void 0;
 const salaryIncomeService_1 = require("../services/salaryIncomeService");
 const salaryIncomeStorageService_1 = require("../services/salaryIncomeStorageService");
 /**
@@ -133,3 +133,89 @@ const deleteSalaryIncomeRecordHandler = async (req, res) => {
     }
 };
 exports.deleteSalaryIncomeRecordHandler = deleteSalaryIncomeRecordHandler;
+/**
+ * 給与所得一覧をCSV形式でエクスポート
+ */
+const exportSalaryIncomeCSVHandler = async (req, res) => {
+    try {
+        const yearParam = Array.isArray(req.params.year) ? req.params.year[0] : req.params.year;
+        const year = parseInt(yearParam);
+        const userId = req.userId || 'demo-user';
+        if (!year || isNaN(year)) {
+            return res.status(400).json({
+                success: false,
+                error: '年度は必須です',
+            });
+        }
+        const records = await (0, salaryIncomeStorageService_1.getSalaryIncomeRecords)({ year });
+        // CSVヘッダー
+        const headers = [
+            '年度',
+            '給与収入',
+            '給与所得控除額',
+            '給与所得',
+            '社会保険料控除',
+            '生命保険料控除',
+            '基礎控除',
+            '扶養控除',
+            '配偶者控除',
+            '控除額合計',
+            '課税所得',
+            '推定税額',
+            '作成日',
+        ];
+        // CSVデータ行
+        const rows = records.map((record) => [
+            record.year,
+            record.result.annualSalary,
+            record.result.salaryIncomeDeduction,
+            record.result.salaryIncome,
+            record.result.socialInsurance,
+            record.result.lifeInsurance,
+            record.result.basicDeduction,
+            record.result.dependentDeduction,
+            record.result.spouseDeduction,
+            record.result.totalDeduction,
+            record.result.taxableIncome,
+            record.result.estimatedTax,
+            new Date(record.createdAt).toLocaleDateString('ja-JP'),
+        ]);
+        // 集計行
+        const totalRow = [
+            '合計',
+            rows.reduce((sum, row) => sum + Number(row[1]), 0),
+            rows.reduce((sum, row) => sum + Number(row[2]), 0),
+            rows.reduce((sum, row) => sum + Number(row[3]), 0),
+            rows.reduce((sum, row) => sum + Number(row[4]), 0),
+            rows.reduce((sum, row) => sum + Number(row[5]), 0),
+            rows.reduce((sum, row) => sum + Number(row[6]), 0),
+            rows.reduce((sum, row) => sum + Number(row[7]), 0),
+            rows.reduce((sum, row) => sum + Number(row[8]), 0),
+            rows.reduce((sum, row) => sum + Number(row[9]), 0),
+            rows.reduce((sum, row) => sum + Number(row[10]), 0),
+            rows.reduce((sum, row) => sum + Number(row[11]), 0),
+            '',
+        ];
+        // CSV生成
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(',')),
+            totalRow.join(','),
+        ].join('\n');
+        // UTF-8 BOMを追加（Excel対応）
+        const bom = '\uFEFF';
+        const csvWithBom = bom + csvContent;
+        // レスポンス設定
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="salary-income-${year}.csv"`);
+        res.send(csvWithBom);
+    }
+    catch (error) {
+        console.error('Error exporting salary income CSV:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'CSV出力に失敗しました',
+        });
+    }
+};
+exports.exportSalaryIncomeCSVHandler = exportSalaryIncomeCSVHandler;

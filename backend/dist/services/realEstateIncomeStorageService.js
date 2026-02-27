@@ -8,11 +8,36 @@ exports.calculateFiscalYearTotal = exports.getRealEstateIncomeById = exports.del
 const RealEstateIncome_1 = require("../models/RealEstateIncome");
 /**
  * 年度別に不動産所得一覧を取得
+ * TX-36との連携: 売却済み物件を自動的に除外
  */
 const getRealEstateIncomeByFiscalYear = async (fiscalYear) => {
     try {
+        const Property = require('../models/Property').default;
+        // 指定年度の不動産所得データを取得
         const records = await RealEstateIncome_1.RealEstateIncome.find({ fiscalYear }).sort({ createdAt: -1 });
-        return records.map(doc => ({
+        // TX-36: 売却済み物件を除外するロジック
+        const filteredRecords = await Promise.all(records.map(async (doc) => {
+            const property = await Property.findOne({ propertyId: doc.propertyId });
+            // 売却済み物件の場合、売却日以降の期間は除外
+            if (property && property.saleStatus === 'sold' && property.saleDate) {
+                const saleDate = new Date(property.saleDate);
+                const saleMonth = saleDate.getMonth() + 1; // 1-12
+                // 売却日以降の月は計上対象外
+                if (saleMonth < 12) {
+                    // 売却月までのデータのみを計上
+                    const adjustedMonths = Math.min(doc.months || 12, saleMonth);
+                    return {
+                        ...doc,
+                        months: adjustedMonths,
+                        monthlyRent: doc.monthlyRent,
+                        totalIncome: (doc.monthlyRent * adjustedMonths) + (doc.otherIncome || 0),
+                        realEstateIncome: ((doc.monthlyRent * adjustedMonths) + (doc.otherIncome || 0)) - (doc.totalExpenses || 0),
+                    };
+                }
+            }
+            return doc;
+        }));
+        return filteredRecords.map(doc => ({
             _id: doc._id.toString(),
             fiscalYear: doc.fiscalYear,
             propertyId: doc.propertyId,

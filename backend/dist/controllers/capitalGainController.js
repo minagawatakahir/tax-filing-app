@@ -35,10 +35,42 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportCapitalGainListPDF = exports.deleteCapitalGainRecordHandler = exports.getCapitalGainRecordsHandler = exports.saveCapitalGainHandler = exports.calculateCapitalGainHandler = void 0;
+exports.exportCapitalGainListPDF = exports.deleteCapitalGainRecordHandler = exports.getCapitalGainRecordsHandler = exports.saveCapitalGainHandler = exports.calculateCapitalGainHandler = exports.getSoldPropertiesHandler = void 0;
 const capitalGainService_1 = require("../services/capitalGainService");
+const Property_1 = __importDefault(require("../models/Property"));
 const capitalGainStorageService_1 = require("../services/capitalGainStorageService");
+/**
+ * TX-39: 売却済み物件の一覧を取得
+ */
+const getSoldPropertiesHandler = async (req, res) => {
+    try {
+        const soldProperties = await Property_1.default.find({ saleStatus: 'sold' });
+        res.json({
+            success: true,
+            properties: soldProperties.map(p => ({
+                propertyId: p.propertyId,
+                propertyName: p.propertyName || p.name || 'Property',
+                address: p.address || '',
+                saleDate: p.saleDate,
+                salePrice: p.salePrice,
+                acquisitionDate: p.acquisitionDate,
+                acquisitionCost: p.acquisitionCost,
+            })),
+        });
+    }
+    catch (error) {
+        console.error('Error fetching sold properties:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || '売却済み物件の取得に失敗しました',
+        });
+    }
+};
+exports.getSoldPropertiesHandler = getSoldPropertiesHandler;
 /**
  * 譲渡所得計算ハンドラー
  */
