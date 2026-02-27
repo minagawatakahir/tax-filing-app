@@ -44,7 +44,7 @@ const Property_1 = __importDefault(require("../models/Property"));
  */
 const calculateSinglePropertyIncomeHandler = async (req, res) => {
     try {
-        const { income, expenses, depreciationAsset } = req.body;
+        const { income, expenses, depreciationAsset, multiYearInsurance, loanGuarantee, additionalExpenses } = req.body;
         if (!income || !expenses) {
             res.status(400).json({
                 success: false,

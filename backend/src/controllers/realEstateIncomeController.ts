@@ -16,7 +16,14 @@ export const calculateSinglePropertyIncomeHandler = async (
   res: Response
 ) => {
   try {
-    const { income, expenses, depreciationAsset } = req.body;
+    const { 
+      income, 
+      expenses, 
+      depreciationAsset,
+      multiYearInsurance,
+      loanGuarantee,
+      additionalExpenses
+    } = req.body;
 
     if (!income || !expenses) {
       res.status(400).json({

@@ -8,7 +8,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculateRealEstateIncomePortfolio = exports.calculateRealEstateIncome = exports.calculateTotalExpenses = exports.calculateRentalIncome = exports.calculateProportionalAmount = void 0;
+exports.calculateRealEstateIncomePortfolio = exports.calculateRealEstateIncome = exports.calculateTotalExpenses = exports.calculateRentalIncome = exports.calculateProportionalLoanGuarantee = exports.calculateProportionalInsurance = exports.calculateProportionalAmount = void 0;
 const depreciationService_1 = require("./depreciationService");
 const Property_1 = __importDefault(require("../models/Property"));
 // TX-32: 複数年払い経費計算
@@ -29,6 +29,64 @@ const calculateProportionalAmount = (annualAmount, endMonth) => {
     return Math.round(annualAmount * endMonth / 12);
 };
 exports.calculateProportionalAmount = calculateProportionalAmount;
+/**
+ * TX-48: 複数年払い保険料の按分計算
+ * @param totalAmount - 総支払額
+ * @param startMonth - 開始年月（YYYY-MM形式）
+ * @param endMonth - 終了年月（YYYY-MM形式）
+ * @param fiscalYear - 会計年度（開始年）
+ * @returns 当年度按分額
+ */
+const calculateProportionalInsurance = (totalAmount, startMonth, endMonth, fiscalYear) => {
+    if (!startMonth || !endMonth || totalAmount === 0) {
+        return 0;
+    }
+    const startDate = new Date(startMonth);
+    const endDate = new Date(endMonth);
+    // 総月数を計算
+    const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+        (endDate.getMonth() - startDate.getMonth()) + 1;
+    // 当年度利用月数を計算（会計年度: 4月-3月）
+    const fiscalYearStart = new Date(fiscalYear, 3, 1); // 4月1日
+    const fiscalYearEnd = new Date(fiscalYear + 1, 2, 31); // 3月31日
+    const overlapStart = new Date(Math.max(startDate.getTime(), fiscalYearStart.getTime()));
+    const overlapEnd = new Date(Math.min(endDate.getTime(), fiscalYearEnd.getTime()));
+    if (overlapStart > overlapEnd) {
+        return 0; // 対象期間外
+    }
+    const fiscalYearMonths = (overlapEnd.getFullYear() - overlapStart.getFullYear()) * 12 +
+        (overlapEnd.getMonth() - overlapStart.getMonth()) + 1;
+    return Math.round(totalAmount * (fiscalYearMonths / totalMonths));
+};
+exports.calculateProportionalInsurance = calculateProportionalInsurance;
+/**
+ * TX-48: ローン保証料の按分計算
+ * @param totalAmount - 総支払額
+ * @param loanYears - ローン期間（年）
+ * @param paymentMonth - 支払開始年月（YYYY-MM形式）
+ * @param fiscalYear - 会計年度（開始年）
+ * @returns 当年度按分額
+ */
+const calculateProportionalLoanGuarantee = (totalAmount, loanYears, paymentMonth, fiscalYear) => {
+    if (!paymentMonth || loanYears === 0 || totalAmount === 0) {
+        return 0;
+    }
+    const paymentDate = new Date(paymentMonth);
+    const annualAmount = totalAmount / loanYears;
+    // 当年度利用月数を計算
+    const fiscalYearStart = new Date(fiscalYear, 3, 1); // 4月1日
+    const fiscalYearEnd = new Date(fiscalYear + 1, 2, 31); // 3月31日
+    const loanEndDate = new Date(paymentDate.getFullYear() + loanYears, paymentDate.getMonth(), paymentDate.getDate());
+    const overlapStart = new Date(Math.max(paymentDate.getTime(), fiscalYearStart.getTime()));
+    const overlapEnd = new Date(Math.min(loanEndDate.getTime(), fiscalYearEnd.getTime()));
+    if (overlapStart > overlapEnd) {
+        return 0;
+    }
+    const fiscalYearMonths = (overlapEnd.getFullYear() - overlapStart.getFullYear()) * 12 +
+        (overlapEnd.getMonth() - overlapStart.getMonth()) + 1;
+    return Math.round(annualAmount * (fiscalYearMonths / 12));
+};
+exports.calculateProportionalLoanGuarantee = calculateProportionalLoanGuarantee;
 /**
  * 家賃収入を計算（TX-33対応）
  */
