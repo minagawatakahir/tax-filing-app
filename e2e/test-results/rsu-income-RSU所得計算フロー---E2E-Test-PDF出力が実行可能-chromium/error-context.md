@@ -1,0 +1,108 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - heading "📊 確定申告アシスタント" [level=1] [ref=e7]
+      - paragraph [ref=e8]: 高度な税務計算・資産管理システム
+    - generic [ref=e9]:
+      - generic [ref=e10]: "📅 確定申告年度:"
+      - combobox [ref=e11]:
+        - option "2026年" [selected]
+        - option "2025年"
+        - option "2024年"
+        - option "2023年"
+        - option "2022年"
+      - generic [ref=e12]: "選択中: 2026年"
+  - generic [ref=e13]:
+    - complementary [ref=e14]:
+      - generic [ref=e15]:
+        - heading "📊 メニュー" [level=2] [ref=e16]
+        - button "サイドバーを折りたたむ" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+      - navigation [ref=e20]:
+        - button "📊 ダッシュボード" [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: 📊
+          - generic [ref=e24]: ダッシュボード
+        - generic [ref=e25]:
+          - button "所得入力" [ref=e26] [cursor=pointer]:
+            - generic [ref=e27]: 所得入力
+            - img [ref=e28]
+          - generic [ref=e30]:
+            - button "🧮 基本計算" [ref=e31] [cursor=pointer]:
+              - generic [ref=e32]: 🧮
+              - generic [ref=e33]: 基本計算
+            - button "💼 給与所得" [ref=e34] [cursor=pointer]:
+              - generic [ref=e35]: 💼
+              - generic [ref=e36]: 給与所得
+            - button "💱 RSU所得" [ref=e37] [cursor=pointer]:
+              - generic [ref=e38]: 💱
+              - generic [ref=e39]: RSU所得
+        - generic [ref=e40]:
+          - button "不動産・資産管理" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: 不動産・資産管理
+            - img [ref=e43]
+          - generic [ref=e45]:
+            - button "🏢 物件管理" [ref=e46] [cursor=pointer]:
+              - generic [ref=e47]: 🏢
+              - generic [ref=e48]: 物件管理
+            - button "🏠 不動産所得" [ref=e49] [cursor=pointer]:
+              - generic [ref=e50]: 🏠
+              - generic [ref=e51]: 不動産所得
+            - button "💰 物件売却" [ref=e52] [cursor=pointer]:
+              - generic [ref=e53]: 💰
+              - generic [ref=e54]: 物件売却
+        - generic [ref=e55]:
+          - button "レポート・一覧" [ref=e56] [cursor=pointer]:
+            - generic [ref=e57]: レポート・一覧
+            - img [ref=e58]
+          - generic [ref=e60]:
+            - button "📋 RSU所得管理" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]: 📋
+              - generic [ref=e63]: RSU所得管理
+            - button "📊 不動産所得一覧" [ref=e64] [cursor=pointer]:
+              - generic [ref=e65]: 📊
+              - generic [ref=e66]: 不動産所得一覧
+            - button "📈 売却所得一覧" [ref=e67] [cursor=pointer]:
+              - generic [ref=e68]: 📈
+              - generic [ref=e69]: 売却所得一覧
+    - main [ref=e70]:
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - heading "🎯 次のステップ" [level=3] [ref=e82]:
+            - generic [ref=e83]: 🎯
+            - generic [ref=e84]: 次のステップ
+          - button "✕" [ref=e85] [cursor=pointer]
+        - list [ref=e86]:
+          - listitem [ref=e87]:
+            - generic [ref=e88]: "1"
+            - generic [ref=e89]:
+              - generic [ref=e90]:
+                - generic [ref=e91]: 🏢
+                - strong [ref=e92]: 物件管理
+              - paragraph [ref=e93]: 不動産物件を登録
+          - listitem [ref=e94]:
+            - generic [ref=e95]: "2"
+            - generic [ref=e96]:
+              - generic [ref=e97]:
+                - generic [ref=e98]: 💼
+                - strong [ref=e99]: 所得入力
+              - paragraph [ref=e100]: 給与やRSUの所得を入力
+          - listitem [ref=e101]:
+            - generic [ref=e102]: "3"
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - generic [ref=e105]: 🏠
+                - strong [ref=e106]: 不動産所得
+              - paragraph [ref=e107]: 物件ごとの所得を計算
+          - listitem [ref=e108]:
+            - generic [ref=e109]: "4"
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - generic [ref=e112]: 📊
+                - strong [ref=e113]: レポート
+              - paragraph [ref=e114]: 結果をエクスポート
+        - paragraph [ref=e116]: 💡 各タブにマウスを合わせると、詳しい説明が表示されます
+      - paragraph [ref=e119]: © 2024 確定申告アシスタント | 正確な税務申告については税理士にご相談ください
+```
