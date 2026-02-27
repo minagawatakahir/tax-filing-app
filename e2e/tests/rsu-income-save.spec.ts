@@ -6,15 +6,13 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('RSU所得の保存フロー - E2E Test', () => {
   test.beforeEach(async ({ page }) => {
+    // localStorageを事前に設定してOnboardingModalを表示しないようにする
+    await page.addInitScript(() => {
+      localStorage.setItem('tx18-onboarding-completed', 'true');
+    });
+    
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    
-    // OnboardingModalを閉じる
-    const skipButton = page.locator('button', { hasText: /スキップ|閉じる|キャンセル/i });
-    if (await skipButton.isVisible({ timeout: 2000 })) {
-      await skipButton.click();
-      await page.waitForTimeout(500);
-    }
   });
 
   test('RSU所得データが年度選択時に自動読み込みされる (TX-55)', async ({ page }) => {

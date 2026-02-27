@@ -2,17 +2,15 @@ import { test, expect } from '@playwright/test';
 
 test.describe('給与所得計算フロー - E2E Test', () => {
   test.beforeEach(async ({ page }) => {
+    // localStorageを事前に設定してOnboardingModalを表示しないようにする
+    await page.addInitScript(() => {
+      localStorage.setItem('tx18-onboarding-completed', 'true');
+    });
+    
     // アプリケーションにアクセス
     await page.goto('/');
     // ページが読み込まれるまで待機
     await page.waitForLoadState('networkidle');
-    
-    // OnboardingModalを閉じる
-    const skipButton = page.locator('button', { hasText: /スキップ|閉じる|キャンセル/i });
-    if (await skipButton.isVisible({ timeout: 2000 })) {
-      await skipButton.click();
-      await page.waitForTimeout(500);
-    }
   });
 
   test('ダッシュボードが表示される', async ({ page }) => {
