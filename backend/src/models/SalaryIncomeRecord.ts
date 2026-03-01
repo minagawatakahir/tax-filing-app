@@ -47,6 +47,9 @@ const SalaryIncomeRecordSchema = new Schema<ISalaryIncomeRecord>(
   }
 );
 
+// 複合ユニークインデックス: userId + year の組み合わせは一意
+SalaryIncomeRecordSchema.index({ userId: 1, year: 1 }, { unique: true });
+
 export const SalaryIncomeRecord = mongoose.model<ISalaryIncomeRecord>(
   'SalaryIncomeRecord',
   SalaryIncomeRecordSchema

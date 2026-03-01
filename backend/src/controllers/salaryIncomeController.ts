@@ -53,6 +53,7 @@ export const calculateSalaryIncomeHandler = async (req: Request, res: Response) 
 
 /**
  * 給与所得計算結果を保存
+ * 同じユーザー・年度の場合は上書き (upsert)
  */
 export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
   try {
@@ -67,12 +68,13 @@ export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
       });
     }
 
+    // upsert: 同じ userId + year の場合は更新、なければ新規作成
     const savedRecord = await saveSalaryIncomeRecord({
       userId,
       year,
       input,
       result,
-    });
+    }, { upsert: true }); // upsert オプション追加
 
     res.json({
       success: true,
@@ -80,10 +82,21 @@ export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
         id: savedRecord._id,
         year: savedRecord.year,
         createdAt: savedRecord.createdAt,
+        updatedAt: savedRecord.updatedAt, // 更新日時も返す
       },
     });
   } catch (error: any) {
     console.error('Error saving salary income record:', error);
+    
+    // ユニーク制約エラー時の詳細メッセージ
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: `この年度 (${error.keyValue?.year}) はすでに登録されています。上書きして保存します。`,
+        code: 'DUPLICATE_YEAR',
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message || '保存に失敗しました',
