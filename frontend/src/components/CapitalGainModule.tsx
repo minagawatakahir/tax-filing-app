@@ -45,6 +45,7 @@ interface CapitalGainModuleProps {
 }
 
 const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => {
+  const { currentFiscalYear } = useFiscalYear();
   const [propertyInfo, setPropertyInfo] = useState<any>(null);
   
   const [input, setInput] = useState<CapitalGainInput>({
@@ -75,6 +76,13 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
     }
   }, [propertyId]);
 
+  // 年度が変更されたら、売却所得一覧を自動読み込み
+  useEffect(() => {
+    if (currentFiscalYear && showHistory) {
+      loadRecords();
+    }
+  }, [currentFiscalYear, showHistory]);
+
   const fetchPropertyData = async (propertyId: string) => {
     try {
       // まず全物件を取得して、propertyIdで検索
@@ -101,12 +109,7 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
     }
   };
 
-  useEffect(() => {
-    if (showHistory) {
-      loadRecords();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showHistory]);
+  // 重複防止のため削除（既に年度変更時のuseEffectで対応済み）
 
   const handleCalculate = async () => {
     setLoading(true);
@@ -133,7 +136,10 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
 
     try {
       setSaveMessage(null);
-      await saveCapitalGainRecord(input.propertyId, input, result);
+      // 売却日から年度を計算（1月～12月 = その年の確定申告年度）
+      const saleDate = new Date(input.saleDate);
+      const fiscalYear = saleDate.getFullYear();
+      await saveCapitalGainRecord(input.propertyId, input, result, fiscalYear);
       setSaveMessage('✅ 計算結果を保存しました');
       setTimeout(() => setSaveMessage(null), 3000);
       if (showHistory) {
@@ -146,8 +152,17 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
 
   const loadRecords = async () => {
     try {
-      const response = await getCapitalGainRecords({ propertyId: propertyId || '' });
-      setRecords(response.data || []);
+      // 年度フィルタリングを追加
+      const filters: any = {};
+      if (propertyId) filters.propertyId = propertyId;
+      if (currentFiscalYear) filters.fiscalYear = currentFiscalYear.year;
+      
+      console.log('Loading records with filters:', filters);
+      const response = await getCapitalGainRecords(filters);
+      console.log('Loaded records:', response);
+      // response が直接配列またはデータオブジェクト
+      const recordsData = Array.isArray(response) ? response : (response.data || []);
+      setRecords(recordsData);
     } catch (err: any) {
       console.error('Failed to load records:', err);
     }
@@ -172,7 +187,9 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
           <h2 className="text-lg font-semibold text-blue-900">{propertyInfo.propertyName}</h2>
           <p className="text-sm text-blue-800">{propertyInfo.address}</p>
-          <p className="text-sm text-blue-700">取得日: {propertyInfo.acquisitionDate?.split('T')[0]} | 取得費: ¥{propertyInfo.acquisitionCost?.toLocaleString()}</p>
+          <p className="text-sm text-blue-700">
+            取得日: {propertyInfo.acquisitionDate?.split('T')[0]} | 取得費: ¥{(propertyInfo.acquisitionCost || 0).toLocaleString()}
+          </p>
         </div>
       )}
 
@@ -339,17 +356,17 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">売却価格</p>
-              <p className="text-2xl font-bold text-gray-900">¥{result.salePrice.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">¥{(result.salePrice || 0).toLocaleString()}</p>
             </div>
             
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">譲渡費用</p>
-              <p className="text-2xl font-bold text-gray-900">¥{result.totalExpenses.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">¥{(result.totalExpenses || 0).toLocaleString()}</p>
             </div>
 
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-blue-600">譲渡益</p>
-              <p className="text-2xl font-bold text-blue-900">¥{result.grossGain.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-blue-900">¥{(result.grossGain || 0).toLocaleString()}</p>
             </div>
 
             <div className="bg-purple-50 p-4 rounded-lg">
@@ -363,12 +380,12 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
 
             <div className="bg-orange-50 p-4 rounded-lg">
               <p className="text-sm text-orange-600">特別控除額</p>
-              <p className="text-2xl font-bold text-orange-900">¥{result.specialDeduction.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-orange-900">¥{(result.specialDeduction || 0).toLocaleString()}</p>
             </div>
 
             <div className="bg-green-50 p-4 rounded-lg">
               <p className="text-sm text-green-600">課税譲渡所得</p>
-              <p className="text-2xl font-bold text-green-900">¥{result.taxableIncome.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-900">¥{(result.taxableIncome || 0).toLocaleString()}</p>
             </div>
 
             <div className="md:col-span-2 bg-red-50 border-l-4 border-red-500 p-4">
@@ -376,15 +393,15 @@ const CapitalGainModule: React.FC<CapitalGainModuleProps> = ({ propertyId }) => 
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span>所得税 ({result.taxRate * 100}%)</span>
-                  <span className="font-semibold">¥{result.incomeTax.toLocaleString()}</span>
+                  <span className="font-semibold">¥{(result.incomeTax || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>住民税 (5%)</span>
-                  <span className="font-semibold">¥{result.residentialTax.toLocaleString()}</span>
+                  <span className="font-semibold">¥{(result.residentialTax || 0).toLocaleString()}</span>
                 </div>
                 <div className="border-t-2 border-red-300 pt-2 flex justify-between text-xl">
                   <span className="font-bold">合計税額</span>
-                  <span className="font-bold text-red-700">¥{result.totalTax.toLocaleString()}</span>
+                  <span className="font-bold text-red-700">¥{(result.totalTax || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>

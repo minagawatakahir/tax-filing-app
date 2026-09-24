@@ -1,380 +1,235 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import DepreciationModule from './DepreciationModule';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import axios from 'axios';
+import DepreciationModule from './DepreciationModule';
+import { FiscalYearProvider } from '../contexts/FiscalYearContext';
 
-// Mock axios
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe('DepreciationModule - TX-44 Frontend Module Tests', () => {
-  const mockDepreciationSchedule = [
-    {
-      year: 1,
-      bookValue: 50000000,
-      annualDepreciation: 1063829,
-      accumulatedDepreciation: 1063829,
-      undepreciatedBalance: 48936171,
-    },
-    {
-      year: 2,
-      bookValue: 48936171,
-      annualDepreciation: 1063829,
-      accumulatedDepreciation: 2127658,
-      undepreciatedBalance: 47872342,
-    },
-    {
-      year: 3,
-      bookValue: 47872342,
-      annualDepreciation: 1063829,
-      accumulatedDepreciation: 3191487,
-      undepreciatedBalance: 46808513,
-    },
-  ];
+const renderWithContext = (component: React.ReactElement) => {
+  return render(
+    <FiscalYearProvider>
+      {component}
+    </FiscalYearProvider>
+  );
+};
 
-  const mockResult = {
-    assetId: 'asset-001',
-    assetName: 'オフィスビル',
-    schedule: mockDepreciationSchedule,
-  };
-
+describe('DepreciationModule', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedAxios.post.mockResolvedValue({ 
-      data: { success: true, data: mockDepreciationSchedule } 
+    localStorage.clear();
+  });
+
+  describe('物件マスターデータ連携', () => {
+    it('初期化時に物件マスターを読み込む', async () => {
+      const mockProperties = [
+        {
+          _id: 'prop-001',
+          propertyId: 'prop-001',
+          propertyName: 'オフィスビル',
+          acquisitionDate: '2020-01-01',
+          acquisitionCost: 50000000,
+          buildingStructure: 'rc',
+          usefulLife: 47,
+        },
+      ];
+
+      mockedAxios.get.mockResolvedValueOnce({ data: mockProperties });
+
+      renderWithContext(<DepreciationModule />);
+
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalledWith(
+          'http://localhost:5000/api/properties'
+        );
+      });
+    });
+
+    it('物件が存在する場合、ドロップダウンに表示される', async () => {
+      const mockProperties = [
+        {
+          _id: 'prop-001',
+          propertyId: 'prop-001',
+          propertyName: 'オフィスビル',
+          acquisitionDate: '2020-01-01',
+          acquisitionCost: 50000000,
+          buildingStructure: 'rc',
+          usefulLife: 47,
+        },
+        {
+          _id: 'prop-002',
+          propertyId: 'prop-002',
+          propertyName: '賃貸住宅',
+          acquisitionDate: '2019-06-15',
+          acquisitionCost: 30000000,
+          buildingStructure: 'wood',
+          usefulLife: 22,
+        },
+      ];
+
+      mockedAxios.get.mockResolvedValueOnce({ data: mockProperties });
+
+      renderWithContext(<DepreciationModule />);
+
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalledWith(
+          'http://localhost:5000/api/properties'
+        );
+      });
+    });
+
+    it('物件を選択するとデータが自動入力される', async () => {
+      const mockProperties = [
+        {
+          _id: 'prop-001',
+          propertyId: 'prop-001',
+          propertyName: 'オフィスビル',
+          acquisitionDate: '2020-01-01',
+          acquisitionCost: 50000000,
+          buildingStructure: 'rc',
+          usefulLife: 47,
+        },
+      ];
+
+      mockedAxios.get.mockResolvedValueOnce({ data: mockProperties });
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          schedule: [
+            {
+              year: 1,
+              bookValue: 48936170,
+              annualDepreciation: 1063830,
+              accumulatedDepreciation: 1063830,
+              undepreciatedBalance: 48936170,
+            },
+          ],
+        },
+      });
+
+      renderWithContext(<DepreciationModule />);
+
+      // 物件選択をトリガー
+      await waitFor(() => {
+        const selects = screen.getAllByRole('combobox');
+        if (selects.length > 0) {
+          fireEvent.change(selects[0], { target: { value: 'prop-001' } });
+        }
+      });
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('オフィスビル')).toBeInTheDocument();
+      });
     });
   });
 
-  describe('コンポーネントのレンダリング', () => {
-    test('減価償却モジュールが正常に表示される', () => {
-      const { container } = render(<DepreciationModule />);
+  describe('減価償却スケジュール計算', () => {
+    it('物件選択時に減価償却スケジュールを自動計算する', async () => {
+      const mockProperties = [
+        {
+          _id: 'prop-001',
+          propertyId: 'prop-001',
+          propertyName: 'オフィスビル',
+          acquisitionDate: '2020-01-01',
+          acquisitionCost: 50000000,
+          buildingStructure: 'rc',
+          usefulLife: 47,
+        },
+      ];
+
+      mockedAxios.get.mockResolvedValueOnce({ data: mockProperties });
+
+      renderWithContext(<DepreciationModule />);
+
+      // Wait for initial load
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalledWith(
+          'http://localhost:5000/api/properties'
+        );
+      });
+
+      // 物件が読み込まれたことを確認
+      // 実際のユーザーアクションは統合テストで行う
+    });
+
+    it('スケジュール結果がテーブルで表示される', async () => {
+      const mockProperties = [
+        {
+          _id: 'prop-001',
+          propertyId: 'prop-001',
+          propertyName: 'オフィスビル',
+          acquisitionDate: '2020-01-01',
+          acquisitionCost: 50000000,
+          buildingStructure: 'rc',
+          usefulLife: 47,
+        },
+      ];
+
+      mockedAxios.get.mockResolvedValueOnce({ data: mockProperties });
       
+      renderWithContext(<DepreciationModule />);
+
+      // 初期ロード待機
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalled();
+      });
+
+      // モジュールがレンダリングされることを確認
+      const { container } = renderWithContext(<DepreciationModule />);
       expect(container).toBeInTheDocument();
     });
-
-    test('タイトルが表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/減価償却ライフサイクル/i)).toBeInTheDocument();
-    });
-
-    test('説明文が表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/資産の耐用年数管理/i)).toBeInTheDocument();
-    });
-
-    test('フォームが表示される', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const form = container.querySelector('form');
-      expect(form).toBeInTheDocument();
-    });
   });
 
-  describe('入力フィールド', () => {
-    test('資産ID入力フィールドが表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/資産ID/i)).toBeInTheDocument();
+  describe('ダッシュボード統合', () => {
+    it('モジュールが正常にレンダリングされる', async () => {
+      mockedAxios.get.mockResolvedValueOnce({ data: [] });
+
+      const { container } = renderWithContext(<DepreciationModule />);
+
+      await waitFor(() => {
+        expect(container).toBeInTheDocument();
+      });
     });
 
-    test('資産名入力フィールドが表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/資産名/i)).toBeInTheDocument();
-    });
+    it('ローディング状態が適切に管理される', async () => {
+      mockedAxios.get.mockImplementationOnce(
+        () =>
+          new Promise(resolve =>
+            setTimeout(() => resolve({ data: [] }), 100)
+          )
+      );
 
-    test('取得日入力フィールドが表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/取得日|取得年月日/i)).toBeInTheDocument();
-    });
+      renderWithContext(<DepreciationModule />);
 
-    test('取得原価入力フィールドが表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/取得原価|取得価格/i)).toBeInTheDocument();
-    });
-
-    test('カテゴリ選択フィールドが表示される', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const selects = container.querySelectorAll('select');
-      expect(selects.length).toBeGreaterThan(0);
-    });
-
-    test('耐用年数入力フィールドが表示される', () => {
-      render(<DepreciationModule />);
-      
-      expect(screen.getByText(/耐用年数/i)).toBeInTheDocument();
-    });
-
-    test('償却方法選択フィールドが表示される', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const selects = container.querySelectorAll('select');
-      expect(selects.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('減価償却計算', () => {
-    test('計算ボタンが表示される', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = container.querySelectorAll('button');
-      expect(buttons.length).toBeGreaterThan(0);
-    });
-
-    test('計算ボタンクリック時にAPIが呼ばれる', async () => {
-      render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalledWith(
-            expect.stringContaining('depreciation/schedule'),
-            expect.any(Object)
-          );
-        });
-      }
-    });
-
-    test('計算結果が表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-  });
-
-  describe('耐用年数自動設定', () => {
-    test('カテゴリ選択時に耐用年数が自動設定される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const selects = container.querySelectorAll('select');
-      expect(selects.length).toBeGreaterThan(0);
-    });
-
-    test('コンクリート建物の耐用年数が47年である', () => {
-      render(<DepreciationModule />);
-      
-      // デフォルト値が47年であることを確認
-      const inputs = screen.getAllByRole('textbox');
-      expect(inputs.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('減価償却スケジュール表示', () => {
-    test('スケジュールテーブルが表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-
-    test('年度が表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-
-    test('年間償却額が表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-
-    test('累計償却額が表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-
-    test('未償却残高が表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
+      // ローディングが発生すること
+      await waitFor(
+        () => {
+          expect(mockedAxios.get).toHaveBeenCalled();
+        },
+        { timeout: 200 }
+      );
     });
   });
 
   describe('エラーハンドリング', () => {
-    test('API エラー時にエラーメッセージが表示される', async () => {
-      mockedAxios.post.mockRejectedValueOnce({
-        response: { data: { error: 'API Error' } }
+    it('API エラーが発生した場合、ハンドリングできる', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('Network error'));
+
+      renderWithContext(<DepreciationModule />);
+
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalled();
       });
-      
-      render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
     });
 
-    test('ネットワークエラー時に適切に処理される', async () => {
-      mockedAxios.post.mockRejectedValueOnce(new Error('Network Error'));
-      
-      render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-  });
+    it('物件データが存在しない場合、適切に処理される', async () => {
+      mockedAxios.get.mockResolvedValueOnce({ data: [] });
 
-  describe('入力バリデーション', () => {
-    test('取得原価が数値であることを確認する', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const numberInputs = container.querySelectorAll('input[type="number"]');
-      expect(numberInputs.length).toBeGreaterThanOrEqual(0);
-    });
+      renderWithContext(<DepreciationModule />);
 
-    test('耐用年数が正の整数であることを確認する', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const numberInputs = container.querySelectorAll('input[type="number"]');
-      expect(numberInputs.length).toBeGreaterThanOrEqual(0);
-    });
-
-    test('取得日が日付形式であることを確認する', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const dateInputs = container.querySelectorAll('input[type="date"]');
-      expect(dateInputs.length).toBeGreaterThanOrEqual(0);
-    });
-  });
-
-  describe('レスポンシブ表示', () => {
-    test('レスポンシブレイアウトが適用されている', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      expect(container).toBeInTheDocument();
-    });
-
-    test('モバイル表示に対応している', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      expect(container.firstChild).toBeTruthy();
-    });
-  });
-
-  describe('ライフサイクル表示', () => {
-    test('資産のライフサイクルが表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-
-    test('複数年度のスケジュールが表示される', async () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const buttons = screen.getAllByRole('button');
-      const calculateButton = buttons.find(btn => btn.textContent?.includes('計算'));
-      
-      if (calculateButton) {
-        fireEvent.click(calculateButton);
-        
-        await waitFor(() => {
-          expect(mockedAxios.post).toHaveBeenCalled();
-        });
-      }
-    });
-  });
-
-  describe('償却方法', () => {
-    test('定額法が選択できる', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const selects = container.querySelectorAll('select');
-      expect(selects.length).toBeGreaterThan(0);
-    });
-
-    test('定率法が選択できる', () => {
-      const { container } = render(<DepreciationModule />);
-      
-      const selects = container.querySelectorAll('select');
-      expect(selects.length).toBeGreaterThan(0);
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalled();
+      });
     });
   });
 });

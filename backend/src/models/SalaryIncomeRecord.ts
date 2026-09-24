@@ -14,6 +14,7 @@ export interface ISalaryIncomeRecord extends Document {
   };
   result: SalaryIncomeResult;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const SalaryIncomeRecordSchema = new Schema<ISalaryIncomeRecord>(
