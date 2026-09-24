@@ -88,6 +88,27 @@ npm start
 - フロントエンド: http://localhost:3000
 - バックエンド API: http://localhost:5000
 
+## 🧪 テスト
+
+```bash
+# 単体テスト
+cd backend && npm test
+cd frontend && npm test
+
+# E2E テスト（MongoDB を起動しておく）
+cd e2e && npx playwright test
+```
+
+E2E テストは **実データとは別の専用DB**（`tax-filing-app-e2e`）で実行します。
+
+- Playwright がバックエンドを E2E 用DBに接続して起動し、実行のたびに DB を初期化してシードします（`backend/scripts/seed-e2e.ts`）。
+- **開発用のバックエンドがポート5000で動いていると、E2E は起動に失敗して止まります。** 実データへの書き込みを防ぐための動作なので、開発用のバックエンドを止めてから実行してください。
+- 接続先は環境変数 `E2E_MONGODB_URI` で変更できます（DB名は `-e2e` で終わる必要があります）。
+
+## 🛠 データのメンテナンス
+
+- `cd backend && npm run db:dedupe-salary` — 給与所得の年度ごとの重複を確認（`-- --apply` で整理し、一意インデックスを作成）
+
 ## 📚 ドキュメント
 
 - [API リファレンス](API_REFERENCE.md)
