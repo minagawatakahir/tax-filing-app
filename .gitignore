@@ -48,3 +48,7 @@ tmp_rovodev_*
 # Database
 *.sqlite
 *.db
+
+# Playwright artifacts
+e2e/test-results/
+e2e/playwright-report/
