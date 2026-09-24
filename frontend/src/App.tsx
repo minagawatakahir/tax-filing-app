@@ -56,10 +56,10 @@ function AppContent() {
     
     if (module) {
       // moduleパラメータで遷移先を判定
-      if (module === 'capital-gain') {
-        setActiveTab('capital-gain');
-      } else if (module === 'real-estate-income') {
-        setActiveTab('real-estate-income');
+      // 他モジュールから ?module= で遷移してくる先（例: 不動産所得の保存後は一覧へ）
+      const navigableModules: TabType[] = ['capital-gain', 'real-estate-income', 'real-estate-income-list'];
+      if ((navigableModules as string[]).includes(module)) {
+        setActiveTab(module as TabType);
       }
       
       // propertyIdがあれば保存
