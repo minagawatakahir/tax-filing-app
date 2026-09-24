@@ -556,25 +556,21 @@ describe('pdfGenerationService - TX-45 Backend Services Tests', () => {
       expect(buffer.length).toBeGreaterThan(0);
     });
 
-    test('無効な不動産データでもエラーが発生しない', async () => {
+    test('不動産データの properties が null の場合は例外を投げる', async () => {
       const invalidData = {
         ...mockRealEstateData,
         properties: null as any,
       };
 
-      // Implementation should handle null gracefully or throw is acceptable for null values
-      // Since the test passes null, we expect it to throw - this is a valid error case
       expect(() => generateRealEstateIncomeListPDF(invalidData)).toThrow();
     });
 
-    test('無効な譲渡所得データでもエラーが発生しない', async () => {
+    test('譲渡所得データの properties が null の場合は例外を投げる', async () => {
       const invalidData = {
         ...mockCapitalGainData,
         properties: null as any,
       };
 
-      // Implementation should handle null gracefully or throw is acceptable for null values
-      // Since the test passes null, we expect it to throw - this is a valid error case
       expect(() => generateCapitalGainListPDF(invalidData)).toThrow();
     });
   });

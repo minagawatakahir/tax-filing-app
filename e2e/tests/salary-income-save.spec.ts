@@ -5,6 +5,10 @@ import { test, expect } from '@playwright/test';
  * 入力 → 計算 → 保存 → 履歴確認 の一連のフローを検証
  */
 test.describe('給与所得の保存フロー - E2E Test', () => {
+  // 給与所得は「年度ごとに1件」（TX-61）のため、並列実行すると同じ年度のレコードを互いに上書きしてしまう。
+  // このファイルのテストは同一ワーカーで順番に実行する。
+  test.describe.configure({ mode: 'default' });
+
   test.beforeEach(async ({ page }) => {
     // localStorageを事前に設定してOnboardingModalを表示しないようにする
     await page.addInitScript(() => {
@@ -67,33 +71,30 @@ test.describe('給与所得の保存フロー - E2E Test', () => {
   });
 
   test('保存された計算結果を削除できる', async ({ page }) => {
-    // 給与所得モジュールに移動
-    const salaryButton = page.getByRole('button', { name: /給与所得/i });
-    await salaryButton.click();
-    await page.waitForTimeout(500);
+    // 給与所得モジュールに移動し、削除対象のレコードを用意する（年度ごとに1件へ上書き保存）
+    await page.getByRole('button', { name: /^💼\s*給与所得$/ }).click();
+    await page.locator('input[name="annualSalary"]').fill('5500000');
+    await page.getByRole('button', { name: '計算する' }).click();
+    await page.getByRole('button', { name: /この結果を保存/ }).click();
+    await expect(page.getByText('✅ 計算結果を保存しました')).toBeVisible({ timeout: 5000 });
 
-    // 履歴セクションを表示
-    const historyButton = page.locator('button', { hasText: /履歴|保存された計算結果/i });
-    if (await historyButton.isVisible({ timeout: 2000 })) {
-      await historyButton.click();
-      await page.waitForTimeout(500);
-    }
+    // 右下のワークフローガイドが削除ボタンを覆うことがあるため最小化する
+    await page.getByTitle('最小化').click();
 
-    // 削除ボタンがあることを確認
-    const deleteButton = page.locator('button', { hasText: /削除|🗑️/i }).first();
-    if (await deleteButton.isVisible({ timeout: 2000 })) {
-      await deleteButton.click();
-      await page.waitForTimeout(500);
+    // 履歴を表示し、件数を確認
+    await page.getByRole('button', { name: /計算履歴を表示/ }).click();
+    const heading = page.getByRole('heading', { name: /年度の計算履歴 \(\d+件\)/ });
+    await expect(heading).toBeVisible({ timeout: 5000 });
+    const countOf = async () => Number((await heading.textContent())?.match(/\((\d+)件\)/)?.[1] ?? NaN);
+    const before = await countOf();
+    expect(before).toBeGreaterThan(0);
 
-      // 確認ダイアログがある場合は承認
-      const confirmButton = page.locator('button', { hasText: /はい|OK|削除する/i });
-      if (await confirmButton.isVisible({ timeout: 1000 })) {
-        await confirmButton.click();
-      }
+    // 削除（確認ダイアログを承認）
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /🗑️\s*削除/ }).first().click();
 
-      // 削除後、レコードが消えることを確認
-      await page.waitForTimeout(500);
-    }
+    // 件数が1件減る
+    await expect(heading).toHaveText(new RegExp(`\\(${before - 1}件\\)`), { timeout: 5000 });
   });
 
   test('複数の給与所得レコードを保存できる', async ({ page }) => {

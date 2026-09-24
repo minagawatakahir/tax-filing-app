@@ -398,4 +398,125 @@ describe('Storage Services - TX-45 Backend Services Tests', () => {
       expect(result).toHaveLength(1);
     });
   });
+
+  describe('クエリの組み立て（モックへの呼び出し内容を検証）', () => {
+    const chain = (value: unknown) => ({ sort: jest.fn().mockResolvedValue(value) });
+
+    test('給与: upsert は userId・年度で検索し、上書き・新規作成・バリデーションを指定する', async () => {
+      (SalaryIncomeRecord.findOneAndUpdate as jest.Mock).mockResolvedValue({ year: 2025 });
+      const params = { userId: 'user-1', year: 2025, input: {} as any, result: {} as any };
+
+      await saveSalaryIncomeRecord(params, { upsert: true });
+
+      expect(SalaryIncomeRecord.findOneAndUpdate).toHaveBeenCalledWith(
+        { userId: 'user-1', year: 2025 },
+        { $set: params },
+        { upsert: true, new: true, runValidators: true }
+      );
+    });
+
+    test('給与: upsert で userId が無い場合は demo-user で検索する', async () => {
+      (SalaryIncomeRecord.findOneAndUpdate as jest.Mock).mockResolvedValue({});
+
+      await saveSalaryIncomeRecord({ year: 2024, input: {} as any, result: {} as any } as any, { upsert: true });
+
+      expect((SalaryIncomeRecord.findOneAndUpdate as jest.Mock).mock.calls[0][0]).toEqual({
+        userId: 'demo-user',
+        year: 2024,
+      });
+    });
+
+    test('給与: upsert を指定しない場合は新規ドキュメントとして save する', async () => {
+      const save = jest.fn().mockResolvedValue({ _id: 'new' });
+      (SalaryIncomeRecord as unknown as jest.Mock).mockImplementation(() => ({ save }));
+
+      await saveSalaryIncomeRecord({ userId: 'u', year: 2025, input: {} as any, result: {} as any });
+
+      expect(SalaryIncomeRecord).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u', year: 2025 }));
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(SalaryIncomeRecord.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    test('給与: フィルタから検索条件を作り、作成日時の新しい順に並べる', async () => {
+      const sorted = chain([]);
+      (SalaryIncomeRecord.find as jest.Mock).mockReturnValue(sorted);
+      const startDate = new Date(2025, 0, 1);
+      const endDate = new Date(2025, 11, 31);
+
+      await getSalaryIncomeRecords({ userId: 'u', year: 2025, startDate, endDate });
+
+      expect(SalaryIncomeRecord.find).toHaveBeenCalledWith({
+        userId: 'u',
+        year: 2025,
+        createdAt: { $gte: startDate, $lte: endDate },
+      });
+      expect(sorted.sort).toHaveBeenCalledWith({ createdAt: -1 });
+    });
+
+    test('給与: フィルタが空なら全件を検索する', async () => {
+      (SalaryIncomeRecord.find as jest.Mock).mockReturnValue(chain([]));
+
+      await getSalaryIncomeRecords({});
+
+      expect(SalaryIncomeRecord.find).toHaveBeenCalledWith({});
+    });
+
+    test('RSU: userId と年度で検索し、年度・作成日時の新しい順に並べる', async () => {
+      const sorted = chain([]);
+      (RSUIncomeRecord.find as jest.Mock).mockReturnValue(sorted);
+
+      await getRSUIncomeRecords('u', 2025);
+
+      expect(RSUIncomeRecord.find).toHaveBeenCalledWith({ userId: 'u', year: 2025 });
+      expect(sorted.sort).toHaveBeenCalledWith({ year: -1, createdAt: -1 });
+    });
+
+    test('RSU: 年度を省略すると userId のみで検索する', async () => {
+      (RSUIncomeRecord.find as jest.Mock).mockReturnValue(chain([]));
+
+      await getRSUIncomeRecords('u');
+
+      expect(RSUIncomeRecord.find).toHaveBeenCalledWith({ userId: 'u' });
+    });
+
+    test('RSU: 更新は更新後のドキュメントを返すよう指定する', async () => {
+      (RSUIncomeRecord.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+
+      await updateRSUIncomeRecord('id-1', { totalRSUIncome: 100 });
+
+      expect(RSUIncomeRecord.findByIdAndUpdate).toHaveBeenCalledWith('id-1', { totalRSUIncome: 100 }, { new: true });
+    });
+
+    test('RSU: 削除対象が無ければ false を返す', async () => {
+      (RSUIncomeRecord.findByIdAndDelete as jest.Mock).mockResolvedValue(null);
+
+      await expect(deleteRSUIncomeRecord('missing')).resolves.toBe(false);
+      expect(RSUIncomeRecord.findByIdAndDelete).toHaveBeenCalledWith('missing');
+    });
+
+    test('RSU: 年度別合計は userId・年度で検索して合算する', async () => {
+      (RSUIncomeRecord.find as jest.Mock).mockResolvedValue([{ totalRSUIncome: 1000 }, { totalRSUIncome: 2500 }]);
+
+      await expect(getTotalRSUIncomeByYear('u', 2025)).resolves.toBe(3500);
+      expect(RSUIncomeRecord.find).toHaveBeenCalledWith({ userId: 'u', year: 2025 });
+    });
+
+    test('譲渡所得: 年度・物件IDのフィルタから検索条件を作る', async () => {
+      const sorted = chain([]);
+      (CapitalGainRecord.find as jest.Mock).mockReturnValue(sorted);
+
+      await getCapitalGainRecords({ userId: 'u', fiscalYear: 2025, propertyId: 'p-1' });
+
+      expect(CapitalGainRecord.find).toHaveBeenCalledWith({ userId: 'u', fiscalYear: 2025, propertyId: 'p-1' });
+      expect(sorted.sort).toHaveBeenCalledWith({ createdAt: -1 });
+    });
+
+    test('譲渡所得: 削除は指定したIDで行う', async () => {
+      (CapitalGainRecord.findByIdAndDelete as jest.Mock).mockResolvedValue({});
+
+      await deleteCapitalGainRecord('cg-1');
+
+      expect(CapitalGainRecord.findByIdAndDelete).toHaveBeenCalledWith('cg-1');
+    });
+  });
 });
