@@ -17,7 +17,7 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
 
   test('不動産所得の計算結果を保存し、履歴で確認できる', async ({ page }) => {
     // Step 1: 不動産所得モジュールに移動
-    const realEstateButton = page.getByRole('button', { name: /不動産所得/i });
+    const realEstateButton = page.getByRole('button', { name: /^🏠\s*不動産所得$/i });
     await realEstateButton.click();
     await page.waitForTimeout(500);
 
@@ -27,6 +27,9 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
       await propertySelect.selectOption({ index: 1 }); // 最初の物件を選択
       await page.waitForTimeout(500);
     }
+
+    // Step 2.5: 物件IDを入力（シード済み物件）
+    await page.locator('label:has-text("物件ID") + input').fill('property-002');
 
     // Step 3: 家賃収入を入力
     const rentalIncomeInput = page.locator('input[placeholder*="家賃|賃料"]').first();
@@ -42,7 +45,7 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
     }
 
     // Step 5: 計算ボタンをクリック
-    const calculateButton = page.getByRole('button', { name: /計算|計算する|所得を計算/i });
+    const calculateButton = page.getByRole('button', { name: /💰\s*不動産所得を計算/i });
     if (await calculateButton.isVisible({ timeout: 2000 })) {
       await calculateButton.click();
       await page.waitForTimeout(1000);
@@ -55,12 +58,12 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
     // Step 7: 保存ボタンをクリック
     const saveButton = page.getByRole('button', { name: /この結果を保存|保存|登録/i });
     if (await saveButton.isVisible({ timeout: 2000 })) {
+      // Step 8: 成功メッセージ（window.alert）を確認
+      const dialogPromise = page.waitForEvent('dialog', { timeout: 5000 });
       await saveButton.click();
-      await page.waitForTimeout(1000);
-
-      // Step 8: 成功メッセージが表示されることを確認
-      const successMessage = page.locator('text=/保存しました|確認できます|✅/i');
-      await expect(successMessage).toBeVisible({ timeout: 3000 });
+      const dialog = await dialogPromise;
+      expect(dialog.message()).toMatch(/保存しました/);
+      await dialog.accept();
     }
   });
 
@@ -80,7 +83,7 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
 
   test('不動産所得の詳細情報が正しく保存される', async ({ page }) => {
     // 不動産所得モジュールに移動
-    const realEstateButton = page.getByRole('button', { name: /不動産所得/i });
+    const realEstateButton = page.getByRole('button', { name: /^🏠\s*不動産所得$/i });
     await realEstateButton.click();
     await page.waitForTimeout(500);
 
@@ -99,7 +102,7 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
     }
 
     // 計算
-    const calculateButton = page.getByRole('button', { name: /計算|計算する/i });
+    const calculateButton = page.getByRole('button', { name: /💰\s*不動産所得を計算/i });
     if (await calculateButton.isVisible({ timeout: 2000 })) {
       await calculateButton.click();
       await page.waitForTimeout(1000);

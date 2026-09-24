@@ -195,7 +195,8 @@ describe('RSUIncomeListModule - TX-44 Frontend Module Tests', () => {
       
       await waitFor(() => {
         // 合計情報が表示されることを確認
-        expect(screen.queryByText(/4301000|合計|計/i)).toBeTruthy();
+        expect(screen.getByText(/年度 RSU所得合計/)).toBeInTheDocument();
+        expect(screen.getAllByText('¥4,301,000').length).toBeGreaterThan(0);
       });
     });
 

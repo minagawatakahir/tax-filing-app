@@ -1,390 +1,287 @@
-import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
-import {
-  getTTMExchangeRate,
-  calculateRSUTaxableIncome,
-  batchCalculateRSU,
-  clearTTMCache,
-} from '../rsuExchangeService';
+/**
+ * rsuExchangeService のユニットテスト
+ *
+ * サービスはモジュールスコープに TTM レートのキャッシュ（Map）を持つため、
+ * テストごとに jest.resetModules() でモジュールを読み込み直し、テスト間の独立性を保つ。
+ */
+type RSUModule = typeof import('../rsuExchangeService');
 
-// Mock axios
 jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-
-// Mock fs
 jest.mock('fs');
-const mockedFs = fs as jest.Mocked<typeof fs>;
 
-describe('rsuExchangeService - TX-45 Backend Services Tests', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    clearTTMCache();
-    
-    // Mock fs.existsSync to return false (no cache file)
-    mockedFs.existsSync = jest.fn().mockReturnValue(false);
-    mockedFs.mkdirSync = jest.fn();
-    mockedFs.writeFileSync = jest.fn();
-    mockedFs.readFileSync = jest.fn();
+let rsu: RSUModule;
+let axiosGet: jest.Mock;
+let fsMock: {
+  existsSync: jest.Mock;
+  readFileSync: jest.Mock;
+  writeFileSync: jest.Mock;
+  mkdirSync: jest.Mock;
+};
+
+const ENV_KEYS = ['OPEN_EXCHANGE_RATES_API_KEY', 'FIXER_API_KEY', 'USE_SIMULATED_TTM'] as const;
+const originalEnv: Record<string, string | undefined> = {};
+
+const jpy = (rate: number) => ({ data: { rates: { JPY: rate } } });
+
+beforeAll(() => {
+  ENV_KEYS.forEach((k) => (originalEnv[k] = process.env[k]));
+});
+
+afterAll(() => {
+  ENV_KEYS.forEach((k) => {
+    if (originalEnv[k] === undefined) delete process.env[k];
+    else process.env[k] = originalEnv[k];
+  });
+});
+
+beforeEach(() => {
+  jest.resetModules();
+  ENV_KEYS.forEach((k) => delete process.env[k]);
+
+  // resetModules 後に取得し直した mock を、テスト対象と同じインスタンスとして使う
+  const axios = require('axios');
+  axiosGet = axios.get as jest.Mock;
+  axiosGet.mockReset();
+
+  fsMock = require('fs');
+  fsMock.existsSync.mockReset().mockReturnValue(false);
+  fsMock.readFileSync.mockReset().mockReturnValue('{}');
+  fsMock.writeFileSync.mockReset();
+  fsMock.mkdirSync.mockReset();
+
+  jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+  rsu = require('../rsuExchangeService');
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+describe('getTTMRate - 為替レート取得とフォールバック', () => {
+  test('Open Exchange Rates のキーがあればそのレートを使う', async () => {
+    process.env.OPEN_EXCHANGE_RATES_API_KEY = 'oer-key';
+    axiosGet.mockResolvedValueOnce(jpy(140.5));
+
+    const result = await rsu.getTTMRate(new Date(2025, 0, 15));
+
+    expect(result.rate).toBe(140.5);
+    expect(result.source).toBe('Open Exchange Rates');
+    expect(axiosGet).toHaveBeenCalledTimes(1);
+    expect(axiosGet.mock.calls[0][0]).toContain('/historical/2025-01-15.json');
+    expect(axiosGet.mock.calls[0][1].params).toMatchObject({ app_id: 'oer-key', symbols: 'JPY', base: 'USD' });
   });
 
-  describe('getTTMExchangeRate', () => {
-    test('TTM為替レートを取得できる', async () => {
-      const mockRate = 140.5;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
+  test('Open Exchange Rates が失敗したら Fixer にフォールバックする', async () => {
+    process.env.OPEN_EXCHANGE_RATES_API_KEY = 'oer-key';
+    process.env.FIXER_API_KEY = 'fixer-key';
+    axiosGet.mockRejectedValueOnce(new Error('OER down')).mockResolvedValueOnce(jpy(141.2));
 
-      const vestingDate = new Date('2025-01-15');
-      const rate = await getTTMExchangeRate(vestingDate);
+    const result = await rsu.getTTMRate(new Date(2025, 1, 3));
 
-      expect(rate).toBeDefined();
-      expect(typeof rate).toBe('number');
-      expect(rate).toBeGreaterThan(0);
-    });
-
-    test('日付を指定してTTMレートを取得できる', async () => {
-      const mockRate = 142.3;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
-
-      const vestingDate = new Date('2025-04-15');
-      const rate = await getTTMExchangeRate(vestingDate);
-
-      expect(rate).toBeGreaterThan(0);
-      expect(mockedAxios.get).toHaveBeenCalled();
-    });
-
-    test('過去の日付のTTMレートを取得できる', async () => {
-      const mockRate = 138.2;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
-
-      const pastDate = new Date('2024-01-15');
-      const rate = await getTTMExchangeRate(pastDate);
-
-      expect(rate).toBeGreaterThan(0);
-    });
-
-    test('キャッシュが機能する', async () => {
-      const mockRate = 140.5;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
-
-      const vestingDate = new Date('2025-01-15');
-      
-      // 最初の呼び出し
-      const rate1 = await getTTMExchangeRate(vestingDate);
-      
-      // 2回目の呼び出し（キャッシュから取得されるべき）
-      const rate2 = await getTTMExchangeRate(vestingDate);
-
-      expect(rate1).toBe(rate2);
-      // APIは1回だけ呼ばれるべき
-      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
-    });
-
-    test('APIエラー時にデフォルトレートを返す', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('API Error'));
-
-      const vestingDate = new Date('2025-01-15');
-      const rate = await getTTMExchangeRate(vestingDate);
-
-      // デフォルトレート（140円）が返されることを確認
-      expect(rate).toBe(140);
-    });
-
-    test('無効な日付に対してエラー処理が機能する', async () => {
-      const invalidDate = new Date('invalid');
-      
-      await expect(getTTMExchangeRate(invalidDate)).rejects.toThrow();
-    });
+    expect(result.rate).toBe(141.2);
+    expect(result.source).toBe('Fixer');
+    expect(axiosGet).toHaveBeenCalledTimes(2);
+    expect(axiosGet.mock.calls[1][0]).toContain('2025-02-03');
   });
 
-  describe('calculateRSUTaxableIncome', () => {
-    test('RSU課税所得が正しく計算される', async () => {
-      const mockRate = 140.0;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
+  test('APIキーが無い場合は現在レートAPIにフォールバックする', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(149.8));
 
-      const vestingDate = new Date('2025-01-15');
-      const shares = 100;
-      const pricePerShareUSD = 150;
+    const result = await rsu.getTTMRate(new Date(2025, 2, 10));
 
-      const result = await calculateRSUTaxableIncome(vestingDate, shares, pricePerShareUSD);
-
-      expect(result).toBeDefined();
-      expect(result.shares).toBe(shares);
-      expect(result.pricePerShareUSD).toBe(pricePerShareUSD);
-      expect(result.exchangeRate).toBe(mockRate);
-      
-      // 計算確認: 100株 × $150 × 140円 = 2,100,000円
-      const expectedTotal = shares * pricePerShareUSD * mockRate;
-      expect(result.totalValueJPY).toBe(expectedTotal);
-      expect(result.taxableIncomeJPY).toBe(expectedTotal);
-    });
-
-    test('株数が0の場合でも正常に処理される', async () => {
-      const mockRate = 140.0;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
-
-      const vestingDate = new Date('2025-01-15');
-      const shares = 0;
-      const pricePerShareUSD = 150;
-
-      const result = await calculateRSUTaxableIncome(vestingDate, shares, pricePerShareUSD);
-
-      expect(result.totalValueJPY).toBe(0);
-      expect(result.taxableIncomeJPY).toBe(0);
-    });
-
-    test('株価が0の場合でも正常に処理される', async () => {
-      const mockRate = 140.0;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
-
-      const vestingDate = new Date('2025-01-15');
-      const shares = 100;
-      const pricePerShareUSD = 0;
-
-      const result = await calculateRSUTaxableIncome(vestingDate, shares, pricePerShareUSD);
-
-      expect(result.totalValueJPY).toBe(0);
-      expect(result.taxableIncomeJPY).toBe(0);
-    });
-
-    test('計算結果のフィールドがすべて設定される', async () => {
-      const mockRate = 142.5;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: {
-          rates: { JPY: mockRate }
-        }
-      });
-
-      const vestingDate = new Date('2025-01-15');
-      const shares = 100;
-      const pricePerShareUSD = 155;
-
-      const result = await calculateRSUTaxableIncome(vestingDate, shares, pricePerShareUSD);
-
-      expect(result).toHaveProperty('vestingDate');
-      expect(result).toHaveProperty('shares');
-      expect(result).toHaveProperty('pricePerShareUSD');
-      expect(result).toHaveProperty('exchangeRate');
-      expect(result).toHaveProperty('pricePerShareJPY');
-      expect(result).toHaveProperty('totalValueJPY');
-      expect(result).toHaveProperty('taxableIncomeJPY');
-    });
+    expect(result.rate).toBe(149.8);
+    expect(result.source).toBe('Current Rate (Fallback)');
+    expect(axiosGet).toHaveBeenCalledTimes(1);
+    expect(axiosGet.mock.calls[0][0]).toBe('https://api.exchangerate-api.com/v4/latest/USD');
   });
 
-  describe('batchCalculateRSU', () => {
-    test('複数のRSU記録を一括計算できる', async () => {
-      const mockRate1 = 140.0;
-      const mockRate2 = 142.0;
-      
-      mockedAxios.get
-        .mockResolvedValueOnce({
-          data: { rates: { JPY: mockRate1 } }
-        })
-        .mockResolvedValueOnce({
-          data: { rates: { JPY: mockRate2 } }
-        });
+  test('すべてのAPIが失敗した場合はデフォルト150円を返す', async () => {
+    process.env.OPEN_EXCHANGE_RATES_API_KEY = 'oer-key';
+    process.env.FIXER_API_KEY = 'fixer-key';
+    axiosGet.mockRejectedValue(new Error('network error'));
 
-      const vestingRecords = [
-        {
-          vestingDate: new Date('2025-01-15'),
-          shares: 100,
-          pricePerShareUSD: 150,
-        },
-        {
-          vestingDate: new Date('2025-04-15'),
-          shares: 100,
-          pricePerShareUSD: 155,
-        },
-      ];
+    const result = await rsu.getTTMRate(new Date(2025, 9, 15));
 
-      const results = await batchCalculateRSU(vestingRecords);
-
-      expect(results).toHaveLength(2);
-      expect(results[0].totalValueJPY).toBe(100 * 150 * mockRate1);
-      expect(results[1].totalValueJPY).toBe(100 * 155 * mockRate2);
-    });
-
-    test('空の配列でも正常に処理される', async () => {
-      const results = await batchCalculateRSU([]);
-
-      expect(results).toEqual([]);
-      expect(mockedAxios.get).not.toHaveBeenCalled();
-    });
-
-    test('単一レコードの一括計算が機能する', async () => {
-      const mockRate = 140.0;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: { rates: { JPY: mockRate } }
-      });
-
-      const vestingRecords = [
-        {
-          vestingDate: new Date('2025-01-15'),
-          shares: 100,
-          pricePerShareUSD: 150,
-        },
-      ];
-
-      const results = await batchCalculateRSU(vestingRecords);
-
-      expect(results).toHaveLength(1);
-      expect(results[0].totalValueJPY).toBe(100 * 150 * mockRate);
-    });
-
-    test('異なる日付のレコードが正しく処理される', async () => {
-      mockedAxios.get
-        .mockResolvedValueOnce({
-          data: { rates: { JPY: 138.0 } }
-        })
-        .mockResolvedValueOnce({
-          data: { rates: { JPY: 140.0 } }
-        })
-        .mockResolvedValueOnce({
-          data: { rates: { JPY: 142.0 } }
-        });
-
-      const vestingRecords = [
-        {
-          vestingDate: new Date('2025-01-15'),
-          shares: 100,
-          pricePerShareUSD: 150,
-        },
-        {
-          vestingDate: new Date('2025-04-15'),
-          shares: 100,
-          pricePerShareUSD: 155,
-        },
-        {
-          vestingDate: new Date('2025-07-15'),
-          shares: 100,
-          pricePerShareUSD: 160,
-        },
-      ];
-
-      const results = await batchCalculateRSU(vestingRecords);
-
-      expect(results).toHaveLength(3);
-      expect(results[0].exchangeRate).toBe(138.0);
-      expect(results[1].exchangeRate).toBe(140.0);
-      expect(results[2].exchangeRate).toBe(142.0);
-    });
+    expect(result.rate).toBe(150);
+    expect(result.source).toBe('Current Rate (Fallback)');
+    expect(axiosGet).toHaveBeenCalledTimes(3);
   });
 
-  describe('キャッシュ機能', () => {
-    test('キャッシュがクリアされる', async () => {
-      const mockRate = 140.0;
-      mockedAxios.get.mockResolvedValue({
-        data: { rates: { JPY: mockRate } }
-      });
+  test('APIレスポンスにJPYが無い場合は次の手段へ進む', async () => {
+    process.env.OPEN_EXCHANGE_RATES_API_KEY = 'oer-key';
+    axiosGet.mockResolvedValueOnce({ data: { rates: {} } }).mockResolvedValueOnce(jpy(151));
 
-      const vestingDate = new Date('2025-01-15');
-      
-      // キャッシュに保存
-      await getTTMExchangeRate(vestingDate);
-      
-      // キャッシュクリア
-      clearTTMCache();
-      
-      // 再度取得（APIが呼ばれるべき）
-      await getTTMExchangeRate(vestingDate);
+    const result = await rsu.getTTMRate(new Date(2025, 3, 1));
 
-      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
-    });
-
-    test('同じ日付の複数回呼び出しがキャッシュを使用する', async () => {
-      const mockRate = 140.0;
-      mockedAxios.get.mockResolvedValueOnce({
-        data: { rates: { JPY: mockRate } }
-      });
-
-      const vestingDate = new Date('2025-01-15');
-      
-      await getTTMExchangeRate(vestingDate);
-      await getTTMExchangeRate(vestingDate);
-      await getTTMExchangeRate(vestingDate);
-
-      // APIは1回だけ呼ばれるべき
-      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
-    });
+    expect(result.rate).toBe(151);
+    expect(result.source).toBe('Current Rate (Fallback)');
   });
 
-  describe('エラーハンドリング', () => {
-    test('ネットワークエラー時にデフォルト値を返す', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+  test('同じ日付の2回目はキャッシュから返し、APIを呼ばない', async () => {
+    process.env.OPEN_EXCHANGE_RATES_API_KEY = 'oer-key';
+    axiosGet.mockResolvedValueOnce(jpy(142.3));
+    const date = new Date(2025, 3, 15);
 
-      const vestingDate = new Date('2025-01-15');
-      const rate = await getTTMExchangeRate(vestingDate);
+    await rsu.getTTMRate(date);
+    const second = await rsu.getTTMRate(new Date(2025, 3, 15));
 
-      expect(rate).toBe(140); // デフォルトレート
-    });
-
-    test('タイムアウトエラー時に適切に処理される', async () => {
-      mockedAxios.get.mockRejectedValueOnce(new Error('Timeout'));
-
-      const vestingDate = new Date('2025-01-15');
-      const rate = await getTTMExchangeRate(vestingDate);
-
-      expect(rate).toBe(140);
-    });
-
-    test('不正なレスポンス時に適切に処理される', async () => {
-      mockedAxios.get.mockResolvedValueOnce({
-        data: { invalid: 'data' }
-      });
-
-      const vestingDate = new Date('2025-01-15');
-      const rate = await getTTMExchangeRate(vestingDate);
-
-      expect(rate).toBe(140);
-    });
+    expect(second.rate).toBe(142.3);
+    expect(second.source).toBe('Cache');
+    expect(axiosGet).toHaveBeenCalledTimes(1);
   });
 
-  describe('データ検証', () => {
-    test('負の株数でエラーが発生する', async () => {
-      const vestingDate = new Date('2025-01-15');
-      const shares = -100;
-      const pricePerShareUSD = 150;
+  test('取得したレートはファイルキャッシュに保存される', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(147.25));
 
-      await expect(
-        calculateRSUTaxableIncome(vestingDate, shares, pricePerShareUSD)
-      ).rejects.toThrow();
+    await rsu.getTTMRate(new Date(2025, 4, 20));
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    const calls = fsMock.writeFileSync.mock.calls;
+    const written = JSON.parse(calls[calls.length - 1][1]);
+    expect(written).toEqual({ '2025-05-20': 147.25 });
+  });
+});
+
+describe('initializeTTMRateCache - ファイルキャッシュ読込', () => {
+  test('キャッシュファイルのレートを読み込み、APIを呼ばずに返す', async () => {
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.readFileSync.mockReturnValue(JSON.stringify({ '2025-06-02': 144.44 }));
+
+    rsu.initializeTTMRateCache();
+    const result = await rsu.getTTMRate(new Date(2025, 5, 2));
+
+    expect(result).toMatchObject({ rate: 144.44, source: 'Cache' });
+    expect(axiosGet).not.toHaveBeenCalled();
+  });
+
+  test('キャッシュファイルが壊れていても例外を投げない', () => {
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.readFileSync.mockReturnValue('{not json');
+
+    expect(() => rsu.initializeTTMRateCache()).not.toThrow();
+  });
+});
+
+describe('getBatchTTMRates - 一括取得', () => {
+  test('入力した日付の順序を保って返す', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(145)).mockResolvedValueOnce(jpy(146)).mockResolvedValueOnce(jpy(147));
+    const dates = [new Date(2025, 6, 1), new Date(2025, 6, 2), new Date(2025, 6, 3)];
+
+    const results = await rsu.getBatchTTMRates(dates);
+
+    expect(results.map((r) => r.date)).toEqual(dates);
+    expect(results.map((r) => r.rate)).toEqual([145, 146, 147]);
+  });
+
+  test('キャッシュ済みの日付はAPIを呼ばない', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(145));
+    await rsu.getTTMRate(new Date(2025, 6, 1));
+    axiosGet.mockClear();
+    axiosGet.mockResolvedValueOnce(jpy(146));
+
+    const results = await rsu.getBatchTTMRates([new Date(2025, 6, 1), new Date(2025, 6, 2)]);
+
+    expect(results[0]).toMatchObject({ rate: 145, source: 'Cache' });
+    expect(results[1].rate).toBe(146);
+    expect(axiosGet).toHaveBeenCalledTimes(1);
+  });
+
+  test('シミュレーションモードでは同じ日付に同じレート（140〜160円）を返し、APIを呼ばない', async () => {
+    process.env.USE_SIMULATED_TTM = 'true';
+    const dates = [new Date(2025, 0, 15), new Date(2025, 3, 15), new Date(2025, 0, 15)];
+
+    const first = await rsu.getBatchTTMRates(dates);
+    const second = await rsu.getBatchTTMRates(dates);
+
+    expect(axiosGet).not.toHaveBeenCalled();
+    expect(first.map((r) => r.rate)).toEqual(second.map((r) => r.rate));
+    expect(first[0].rate).toBe(first[2].rate);
+    first.forEach((r) => {
+      expect(r.source).toBe('Simulated (Demo)');
+      expect(r.rate).toBeGreaterThanOrEqual(140);
+      expect(r.rate).toBeLessThan(160);
+    });
+  });
+});
+
+describe('calculateRSUTax - RSU税務計算', () => {
+  test('株価(USD)×レート×株数で円換算し、全額を課税所得とする', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(140));
+
+    const result = await rsu.calculateRSUTax({
+      vestingDate: new Date(2025, 0, 15),
+      shares: 100,
+      pricePerShare: 150,
+      currency: 'USD',
     });
 
-    test('負の株価でエラーが発生する', async () => {
-      const vestingDate = new Date('2025-01-15');
-      const shares = 100;
-      const pricePerShareUSD = -150;
+    expect(result.exchangeRate).toBe(140);
+    expect(result.pricePerShareUSD).toBe(150);
+    expect(result.pricePerShareJPY).toBe(21000);
+    expect(result.totalValueJPY).toBe(2100000);
+    expect(result.taxableIncomeJPY).toBe(2100000);
+  });
 
-      await expect(
-        calculateRSUTaxableIncome(vestingDate, shares, pricePerShareUSD)
-      ).rejects.toThrow();
+  test('小数の株価・端株でも計算できる', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(150));
+
+    const result = await rsu.calculateRSUTax({
+      vestingDate: new Date(2025, 1, 1),
+      shares: 12.5,
+      pricePerShare: 99.99,
+      currency: 'USD',
     });
+
+    expect(result.pricePerShareJPY).toBeCloseTo(14998.5, 6);
+    expect(result.totalValueJPY).toBeCloseTo(187481.25, 6);
+  });
+});
+
+describe('calculateBatchRSUTax / aggregateAnnualRSUIncome - 一括計算と年間集計', () => {
+  test('複数の権利確定をそれぞれのレートで計算する', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(140)).mockResolvedValueOnce(jpy(150));
+
+    const results = await rsu.calculateBatchRSUTax([
+      { vestingDate: new Date(2025, 0, 15), shares: 10, pricePerShare: 100, currency: 'USD' },
+      { vestingDate: new Date(2025, 3, 15), shares: 20, pricePerShare: 200, currency: 'USD' },
+    ]);
+
+    expect(results.map((r) => r.totalValueJPY)).toEqual([140000, 600000]);
+  });
+
+  test('空配列なら空配列を返す', async () => {
+    await expect(rsu.calculateBatchRSUTax([])).resolves.toEqual([]);
+    expect(axiosGet).not.toHaveBeenCalled();
+  });
+
+  test('対象年度のデータのみを集計する', async () => {
+    axiosGet.mockResolvedValueOnce(jpy(140)).mockResolvedValueOnce(jpy(150));
+
+    const summary = await rsu.aggregateAnnualRSUIncome(
+      [
+        { vestingDate: new Date(2024, 11, 15), shares: 999, pricePerShare: 999, currency: 'USD' },
+        { vestingDate: new Date(2025, 0, 15), shares: 10, pricePerShare: 100, currency: 'USD' },
+        { vestingDate: new Date(2025, 6, 15), shares: 20, pricePerShare: 200, currency: 'USD' },
+      ],
+      2025
+    );
+
+    expect(summary.year).toBe(2025);
+    expect(summary.vestingCount).toBe(2);
+    expect(summary.totalShares).toBe(30);
+    expect(summary.totalIncomeJPY).toBe(140000 + 600000);
+    expect(axiosGet).toHaveBeenCalledTimes(2);
+  });
+
+  test('対象年度のデータが無ければ0件・0円', async () => {
+    const summary = await rsu.aggregateAnnualRSUIncome(
+      [{ vestingDate: new Date(2024, 0, 1), shares: 1, pricePerShare: 1, currency: 'USD' }],
+      2025
+    );
+
+    expect(summary).toMatchObject({ vestingCount: 0, totalShares: 0, totalIncomeJPY: 0, calculations: [] });
   });
 });

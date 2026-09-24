@@ -8,7 +8,7 @@ test.describe('ダッシュボード - E2E Test', () => {
 
   test('ダッシュボードが正常に読み込まれる', async ({ page }) => {
     // ページのタイトルを確認
-    await expect(page).toHaveTitle(/Tax Filing|確定申告|Dashboard/i);
+    await expect(page).toHaveTitle(/確定申告/);
   });
 
   test('ダッシュボード要素が表示される', async ({ page }) => {

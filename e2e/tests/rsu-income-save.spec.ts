@@ -24,7 +24,7 @@ test.describe('RSU所得の保存フロー - E2E Test', () => {
     }
 
     // Step 2: RSU所得モジュールに移動
-    const rsuButton = page.getByRole('button', { name: /RSU所得|RSU為替/i });
+    const rsuButton = page.getByRole('button', { name: /^💱\s*RSU所得$/i });
     await rsuButton.click();
     await page.waitForTimeout(1000);
 
@@ -43,45 +43,26 @@ test.describe('RSU所得の保存フロー - E2E Test', () => {
   });
 
   test('RSU所得の計算結果を保存し、履歴で確認できる', async ({ page }) => {
+    // シード済みの2025年度を対象にする（既存レコードを同じ内容で上書き保存）
+    await page.locator('select').first().selectOption('2025');
+
     // Step 1: RSU所得モジュールに移動
-    const rsuButton = page.getByRole('button', { name: /RSU所得|RSU為替/i });
-    await rsuButton.click();
-    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: /^💱\s*RSU所得$/i }).click();
 
-    // Step 2: データが既に読み込まれているか確認
-    const vestingDateInput = page.locator('input[type="date"]').first();
-    const hasData = await vestingDateInput.inputValue();
+    // Step 2: 既存データが読み込まれている
+    const inputRows = page.locator('table tbody tr').filter({ has: page.locator('input[type="date"]') });
+    await expect(inputRows.first().locator('input[type="date"]')).not.toHaveValue('', { timeout: 5000 });
 
-    if (!hasData) {
-      // データがない場合は入力
-      await vestingDateInput.fill('2025-03-15');
-      
-      const sharesInput = page.locator('input[placeholder*="株数"]').first();
-      await sharesInput.fill('100');
+    // Step 3: 一括計算を実行
+    await page.getByRole('button', { name: /^一括計算$/ }).click();
 
-      const priceInput = page.locator('input[placeholder*="価格"]').first();
-      await priceInput.fill('180.50');
-    }
+    // Step 4: 計算結果テーブルが表示される
+    const resultTable = page.locator('table', { has: page.getByRole('columnheader', { name: 'TTM' }) });
+    await expect(resultTable).toBeVisible({ timeout: 15000 });
 
-    // Step 3: 計算ボタンをクリック
-    const calculateButton = page.getByRole('button', { name: /計算|一括計算|為替を計算/i });
-    await calculateButton.click();
-    await page.waitForTimeout(1500);
-
-    // Step 4: 計算結果が表示されることを確認
-    const resultTable = page.locator('table, .result');
-    await expect(resultTable.first()).toBeVisible({ timeout: 5000 });
-
-    // Step 5: 保存ボタンをクリック
-    const saveButton = page.getByRole('button', { name: /この計算結果を保存|保存/i });
-    if (await saveButton.isVisible({ timeout: 2000 })) {
-      await saveButton.click();
-      await page.waitForTimeout(1000);
-
-      // Step 6: 成功メッセージが表示されることを確認
-      const successMessage = page.locator('text=/保存|✅|成功/i');
-      await expect(successMessage).toBeVisible({ timeout: 3000 });
-    }
+    // Step 5: 保存して成功メッセージを確認
+    await page.getByRole('button', { name: /この計算結果を保存/ }).click();
+    await expect(page.getByText(/計算結果を保存しました \(2025年度\)/)).toBeVisible({ timeout: 5000 });
   });
 
   test('年度を変更するとRSUデータが切り替わる (TX-55)', async ({ page }) => {
@@ -93,7 +74,7 @@ test.describe('RSU所得の保存フロー - E2E Test', () => {
     }
 
     // Step 2: RSU所得モジュールに移動
-    const rsuButton = page.getByRole('button', { name: /RSU所得|RSU為替/i });
+    const rsuButton = page.getByRole('button', { name: /^💱\s*RSU所得$/i });
     await rsuButton.click();
     await page.waitForTimeout(1000);
 
@@ -115,42 +96,50 @@ test.describe('RSU所得の保存フロー - E2E Test', () => {
   });
 
   test('複数の権利確定記録を一度に計算できる', async ({ page }) => {
-    // RSU所得モジュールに移動
-    const rsuButton = page.getByRole('button', { name: /RSU所得|RSU為替/i });
-    await rsuButton.click();
-    await page.waitForTimeout(500);
+    // RSU所得モジュールに移動し、一括計算モードにする
+    await page.getByRole('button', { name: /^💱\s*RSU所得$/i }).click();
+    await page.getByRole('button', { name: /^複数行一括計算$/ }).click();
 
-    // 複数行入力
-    const vestingDateInputs = page.locator('input[type="date"]');
-    const sharesInputs = page.locator('input[placeholder*="株数"]');
-    const priceInputs = page.locator('input[placeholder*="価格"]');
+    const inputRows = page.locator('table tbody tr').filter({ has: page.locator('input[type="date"]') });
+    await expect(inputRows.first()).toBeVisible({ timeout: 5000 });
 
-    const rowCount = Math.min(3, await vestingDateInputs.count());
-    
-    for (let i = 0; i < rowCount; i++) {
-      const dateInput = vestingDateInputs.nth(i);
-      if (await dateInput.isVisible({ timeout: 1000 })) {
-        const currentValue = await dateInput.inputValue();
-        if (!currentValue) {
-          await dateInput.fill(`2025-0${i + 3}-15`);
-        }
-      }
+    // 3行になるまで行を追加
+    while ((await inputRows.count()) < 3) {
+      await page.getByRole('button', { name: '+ 行を追加' }).click();
+    }
+    // 余分な行があれば削除して3行にそろえる
+    while ((await inputRows.count()) > 3) {
+      await inputRows.last().getByRole('button', { name: '✕' }).click();
     }
 
-    // 一括計算
-    const calculateButton = page.getByRole('button', { name: /計算|一括計算/i });
-    await calculateButton.click();
-    await page.waitForTimeout(1500);
+    const rows = [
+      { date: '2025-03-15', shares: '100', price: '180.50' },
+      { date: '2025-06-15', shares: '50', price: '175.25' },
+      { date: '2025-09-15', shares: '80', price: '190' },
+    ];
+    for (let i = 0; i < rows.length; i++) {
+      const row = inputRows.nth(i);
+      await row.locator('input[type="date"]').fill(rows[i].date);
+      await row.locator('input[type="number"]').nth(0).fill(rows[i].shares);
+      await row.locator('input[type="number"]').nth(1).fill(rows[i].price);
+    }
 
-    // 結果テーブルに複数行が表示されることを確認
-    const resultRows = page.locator('table tbody tr, .result-row');
-    const resultRowCount = await resultRows.count();
-    expect(resultRowCount).toBeGreaterThan(0);
+    // 一括計算（「複数行一括計算」はモード切替、「一括計算」が実行ボタン）
+    await page.getByRole('button', { name: /^一括計算$/ }).click();
+
+    // 結果テーブルに入力と同じ行数が表示される
+    const resultRows = page
+      .locator('table', { has: page.getByRole('columnheader', { name: 'TTM' }) })
+      .locator('tbody tr');
+    await expect(resultRows).toHaveCount(3, { timeout: 15000 });
   });
 
   test('RSU所得管理画面で年度別データを確認できる', async ({ page }) => {
+    // シード済みの2025年度を選択
+    await page.locator('select').first().selectOption('2025');
+
     // RSU所得管理モジュールに移動
-    const rsuListButton = page.getByRole('button', { name: /RSU所得管理|RSU一覧/i });
+    const rsuListButton = page.getByRole('button', { name: /^📋\s*RSU所得管理$/i });
     if (await rsuListButton.isVisible({ timeout: 2000 })) {
       await rsuListButton.click();
       await page.waitForTimeout(500);
@@ -163,7 +152,7 @@ test.describe('RSU所得の保存フロー - E2E Test', () => {
 
   test('保存されたRSUデータを削除できる', async ({ page }) => {
     // RSU所得管理モジュールに移動
-    const rsuListButton = page.getByRole('button', { name: /RSU所得管理|RSU一覧/i });
+    const rsuListButton = page.getByRole('button', { name: /^📋\s*RSU所得管理$/i });
     if (await rsuListButton.isVisible({ timeout: 2000 })) {
       await rsuListButton.click();
       await page.waitForTimeout(500);

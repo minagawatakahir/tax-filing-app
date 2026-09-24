@@ -128,7 +128,9 @@ test.describe('給与所得の保存フロー - E2E Test', () => {
       await page.waitForTimeout(500);
     }
 
-    const recordCount = await page.locator('tr, .record-item, [data-testid*="record"]').count();
+    const historyHeading = page.getByRole('heading', { name: /年度の計算履歴 \(\d+件\)/ });
+    await expect(historyHeading).toBeVisible({ timeout: 5000 });
+    const recordCount = Number((await historyHeading.textContent())?.match(/\((\d+)件\)/)?.[1] ?? 0);
     expect(recordCount).toBeGreaterThan(0);
   });
 

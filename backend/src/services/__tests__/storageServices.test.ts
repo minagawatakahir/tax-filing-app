@@ -1,366 +1,401 @@
 import {
-  saveToStorage,
-  getFromStorage,
-  deleteFromStorage,
-  clearStorage,
+  saveSalaryIncomeRecord,
+  getSalaryIncomeRecords,
+  deleteSalaryIncomeRecord,
 } from '../salaryIncomeStorageService';
 import {
   saveRSUIncomeRecord,
   getRSUIncomeRecords,
+  getRSUIncomeRecordById,
   deleteRSUIncomeRecord,
+  updateRSUIncomeRecord,
+  getTotalRSUIncomeByYear,
 } from '../rsuIncomeStorageService';
 import {
   saveCapitalGainRecord,
   getCapitalGainRecords,
   deleteCapitalGainRecord,
 } from '../capitalGainStorageService';
+import { SalaryIncomeRecord } from '../../models/SalaryIncomeRecord';
+import { RSUIncomeRecord } from '../../models/RSUIncomeRecord';
+import { CapitalGainRecord } from '../../models/CapitalGainRecord';
+
+jest.mock('../../models/SalaryIncomeRecord');
+jest.mock('../../models/RSUIncomeRecord');
+jest.mock('../../models/CapitalGainRecord');
 
 describe('Storage Services - TX-45 Backend Services Tests', () => {
   beforeEach(() => {
-    // Clear any existing storage before each test
-    if (typeof localStorage !== 'undefined') {
-      localStorage.clear();
-    }
+    jest.clearAllMocks();
   });
 
   describe('Salary Income Storage Service', () => {
-    test('給与所得データを保存できる', () => {
-      const data = {
+    test('給与所得データを保存できる (upsert)', async () => {
+      const mockRecord = {
+        _id: 'record-1',
+        userId: 'demo-user',
         year: 2025,
-        salary: 5000000,
-        deductions: 1000000,
+        input: {
+          annualSalary: 5000000,
+          withheldTax: 500000,
+          socialInsurance: 100000,
+        },
+        result: {
+          annualSalary: 5000000,
+          salaryIncomeDeduction: 1950000,
+          salaryIncome: 3050000,
+          socialInsurance: 100000,
+          lifeInsurance: 0,
+          basicDeduction: 480000,
+          dependentDeduction: 0,
+          spouseDeduction: 0,
+          totalDeduction: 480000,
+          taxableIncome: 2570000,
+          estimatedTax: 514000,
+        },
       };
 
-      const result = saveToStorage('salary-2025', data);
+      (SalaryIncomeRecord.findOneAndUpdate as jest.Mock).mockResolvedValue(mockRecord);
 
-      expect(result).toBe(true);
+      const result = await saveSalaryIncomeRecord(
+        {
+          userId: 'demo-user',
+          year: 2025,
+          input: mockRecord.input,
+          result: mockRecord.result,
+        },
+        { upsert: true }
+      );
+
+      expect(result).toBeDefined();
+      expect(result?.year).toBe(2025);
     });
 
-    test('保存したデータを取得できる', () => {
-      const data = {
-        year: 2025,
-        salary: 5000000,
-        deductions: 1000000,
-      };
+    test('給与所得データを取得できる (フィルタ付き)', async () => {
+      const mockRecords = [
+        {
+          _id: 'record-1',
+          userId: 'demo-user',
+          year: 2025,
+          input: { annualSalary: 5000000, withheldTax: 500000, socialInsurance: 100000 },
+          result: {} as any,
+        },
+      ];
 
-      saveToStorage('salary-2025', data);
-      const retrieved = getFromStorage('salary-2025');
+      (SalaryIncomeRecord.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockRecords),
+      });
 
-      expect(retrieved).toEqual(data);
+      const result = await getSalaryIncomeRecords({ year: 2025 });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].year).toBe(2025);
     });
 
-    test('存在しないデータはnullを返す', () => {
-      const retrieved = getFromStorage('nonexistent');
+    test('給与所得記録を削除できる', async () => {
+      (SalaryIncomeRecord.findByIdAndDelete as jest.Mock).mockResolvedValue({});
 
-      expect(retrieved).toBeNull();
+      await deleteSalaryIncomeRecord('record-1');
+
+      expect(SalaryIncomeRecord.findByIdAndDelete).toHaveBeenCalledWith('record-1');
     });
 
-    test('データを削除できる', () => {
-      const data = { year: 2025, salary: 5000000 };
+    test('複数年度のデータを管理できる', async () => {
+      const mockRecords2024 = [{ _id: 'r1', year: 2024, input: {}, result: {} }];
+      const mockRecords2025 = [{ _id: 'r2', year: 2025, input: {}, result: {} }];
 
-      saveToStorage('salary-2025', data);
-      const deleted = deleteFromStorage('salary-2025');
-      const retrieved = getFromStorage('salary-2025');
+      (SalaryIncomeRecord.find as jest.Mock)
+        .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(mockRecords2024) })
+        .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(mockRecords2025) });
 
-      expect(deleted).toBe(true);
-      expect(retrieved).toBeNull();
-    });
+      const result2024 = await getSalaryIncomeRecords({ year: 2024 });
+      const result2025 = await getSalaryIncomeRecords({ year: 2025 });
 
-    test('すべてのデータをクリアできる', () => {
-      saveToStorage('salary-2024', { year: 2024, salary: 4000000 });
-      saveToStorage('salary-2025', { year: 2025, salary: 5000000 });
-
-      clearStorage();
-
-      expect(getFromStorage('salary-2024')).toBeNull();
-      expect(getFromStorage('salary-2025')).toBeNull();
-    });
-
-    test('複数年度のデータを管理できる', () => {
-      const data2024 = { year: 2024, salary: 4000000 };
-      const data2025 = { year: 2025, salary: 5000000 };
-
-      saveToStorage('salary-2024', data2024);
-      saveToStorage('salary-2025', data2025);
-
-      expect(getFromStorage('salary-2024')).toEqual(data2024);
-      expect(getFromStorage('salary-2025')).toEqual(data2025);
-    });
-
-    test('大きなデータを保存できる', () => {
-      const largeData = {
-        year: 2025,
-        salary: 50000000,
-        deductions: Array(100).fill({ type: '控除', amount: 100000 }),
-      };
-
-      const result = saveToStorage('large-salary', largeData);
-
-      expect(result).toBe(true);
+      expect(result2024).toHaveLength(1);
+      expect(result2025).toHaveLength(1);
+      expect(result2024[0].year).toBe(2024);
+      expect(result2025[0].year).toBe(2025);
     });
   });
 
   describe('RSU Income Storage Service', () => {
-    test('RSU所得記録を保存できる', () => {
-      const record = {
+    test('RSU所得記録を保存できる', async () => {
+      const mockRecord = {
+        _id: 'rsu-1',
+        userId: 'demo-user',
         year: 2025,
-        vestingDate: '2025-01-15',
-        shares: 100,
-        pricePerShareUSD: 150,
-        totalValueJPY: 2100000,
+        input: [
+          {
+            companyName: 'TechCorp',
+            grantDate: new Date('2025-01-01'),
+            vestingDate: new Date('2025-01-15'),
+            shares: 100,
+            pricePerShareUSD: 150,
+          },
+        ],
+        result: [
+          {
+            companyName: 'TechCorp',
+            vestingDate: new Date('2025-01-15'),
+            shares: 100,
+            pricePerShareUSD: 150,
+            ttmRate: 0.01,
+            totalValueJPY: 2100000,
+            taxableIncome: 2100000,
+          },
+        ],
+        totalRSUIncome: 2100000,
       };
 
-      const result = saveRSUIncomeRecord(record);
+      (RSUIncomeRecord.findOne as jest.Mock).mockResolvedValue(null);
+      (RSUIncomeRecord.prototype.save as jest.Mock).mockResolvedValue(mockRecord);
+
+      const result = await saveRSUIncomeRecord(
+        'demo-user',
+        2025,
+        mockRecord.input,
+        mockRecord.result,
+        2100000
+      );
 
       expect(result).toBeDefined();
+      expect(result?.totalRSUIncome).toBe(2100000);
     });
 
-    test('保存したRSU記録を取得できる', () => {
-      const record = {
-        year: 2025,
-        vestingDate: '2025-01-15',
-        shares: 100,
-        pricePerShareUSD: 150,
-        totalValueJPY: 2100000,
-      };
+    test('保存したRSU記録を取得できる', async () => {
+      const mockRecords = [
+        {
+          _id: 'rsu-1',
+          userId: 'demo-user',
+          year: 2025,
+          input: [],
+          result: [],
+          totalRSUIncome: 2100000,
+        },
+      ];
 
-      saveRSUIncomeRecord(record);
-      const records = getRSUIncomeRecords(2025);
+      (RSUIncomeRecord.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockRecords),
+      });
 
-      expect(records).toHaveLength(1);
-      expect(records[0]).toMatchObject(record);
+      const result = await getRSUIncomeRecords('demo-user', 2025);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].year).toBe(2025);
     });
 
-    test('複数のRSU記録を保存できる', () => {
-      const record1 = {
-        year: 2025,
-        vestingDate: '2025-01-15',
-        shares: 100,
-        pricePerShareUSD: 150,
-        totalValueJPY: 2100000,
-      };
-      const record2 = {
-        year: 2025,
-        vestingDate: '2025-04-15',
-        shares: 100,
-        pricePerShareUSD: 155,
-        totalValueJPY: 2201000,
-      };
+    test('複数のRSU記録を保存・取得できる', async () => {
+      const mockRecords = [
+        {
+          _id: 'rsu-1',
+          userId: 'demo-user',
+          year: 2025,
+          input: [],
+          result: [],
+          totalRSUIncome: 2100000,
+        },
+        {
+          _id: 'rsu-2',
+          userId: 'demo-user',
+          year: 2025,
+          input: [],
+          result: [],
+          totalRSUIncome: 1500000,
+        },
+      ];
 
-      saveRSUIncomeRecord(record1);
-      saveRSUIncomeRecord(record2);
+      (RSUIncomeRecord.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockRecords),
+      });
 
-      const records = getRSUIncomeRecords(2025);
+      const result = await getRSUIncomeRecords('demo-user', 2025);
 
-      expect(records).toHaveLength(2);
+      expect(result).toHaveLength(2);
     });
 
-    test('RSU記録を削除できる', () => {
-      const record = {
-        year: 2025,
-        vestingDate: '2025-01-15',
-        shares: 100,
-        pricePerShareUSD: 150,
-        totalValueJPY: 2100000,
-      };
+    test('RSU記録を削除できる', async () => {
+      (RSUIncomeRecord.findByIdAndDelete as jest.Mock).mockResolvedValue({ _id: 'rsu-1' });
 
-      const saved = saveRSUIncomeRecord(record);
-      const deleted = deleteRSUIncomeRecord(saved.id);
+      const result = await deleteRSUIncomeRecord('rsu-1');
 
-      expect(deleted).toBe(true);
+      expect(result).toBe(true);
     });
 
-    test('年度別にRSU記録を取得できる', () => {
-      const record2024 = { year: 2024, vestingDate: '2024-01-15', shares: 100 };
-      const record2025 = { year: 2025, vestingDate: '2025-01-15', shares: 100 };
+    test('RSU記録をIDで取得できる', async () => {
+      const mockRecord = {
+        _id: 'rsu-1',
+        userId: 'demo-user',
+        year: 2025,
+        totalRSUIncome: 2100000,
+      };
 
-      saveRSUIncomeRecord(record2024);
-      saveRSUIncomeRecord(record2025);
+      (RSUIncomeRecord.findById as jest.Mock).mockResolvedValue(mockRecord);
 
-      const records2024 = getRSUIncomeRecords(2024);
-      const records2025 = getRSUIncomeRecords(2025);
+      const result = await getRSUIncomeRecordById('rsu-1');
 
-      expect(records2024).toHaveLength(1);
-      expect(records2025).toHaveLength(1);
+      expect(result).toBeDefined();
+      expect(result?._id).toBe('rsu-1');
+    });
+
+    test('RSU記録を更新できる', async () => {
+      const mockRecord = {
+        _id: 'rsu-1',
+        totalRSUIncome: 2500000,
+      };
+
+      (RSUIncomeRecord.findByIdAndUpdate as jest.Mock).mockResolvedValue(mockRecord);
+
+      const result = await updateRSUIncomeRecord('rsu-1', { totalRSUIncome: 2500000 });
+
+      expect(result).toBeDefined();
+      expect(result?.totalRSUIncome).toBe(2500000);
+    });
+
+    test('年度別にRSU記録を取得できる', async () => {
+      const mockRecords2024 = [{ _id: 'rsu-2024', year: 2024, totalRSUIncome: 1000000 }];
+      const mockRecords2025 = [{ _id: 'rsu-2025', year: 2025, totalRSUIncome: 2100000 }];
+
+      (RSUIncomeRecord.find as jest.Mock)
+        .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(mockRecords2024) })
+        .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(mockRecords2025) });
+
+      const result2024 = await getRSUIncomeRecords('demo-user', 2024);
+      const result2025 = await getRSUIncomeRecords('demo-user', 2025);
+
+      expect(result2024).toHaveLength(1);
+      expect(result2025).toHaveLength(1);
+    });
+
+    test('年度別の合計RSU所得を取得できる', async () => {
+      const mockRecords = [
+        { totalRSUIncome: 1000000 },
+        { totalRSUIncome: 1500000 },
+      ];
+
+      (RSUIncomeRecord.find as jest.Mock).mockResolvedValue(mockRecords);
+
+      const result = await getTotalRSUIncomeByYear('demo-user', 2025);
+
+      expect(result).toBe(2500000);
     });
   });
 
   describe('Capital Gain Storage Service', () => {
-    test('譲渡所得記録を保存できる', () => {
-      const record = {
-        year: 2025,
+    test('譲渡所得記録を保存できる', async () => {
+      const mockRecord = {
+        _id: 'cg-1',
+        userId: 'demo-user',
+        fiscalYear: 2025,
         propertyId: 'property-001',
-        salePrice: 50000000,
-        acquisitionCost: 30000000,
-        gain: 20000000,
-      };
-
-      const result = saveCapitalGainRecord(record);
-
-      expect(result).toBeDefined();
-    });
-
-    test('保存した譲渡所得記録を取得できる', () => {
-      const record = {
-        year: 2025,
-        propertyId: 'property-001',
-        salePrice: 50000000,
-        acquisitionCost: 30000000,
-        gain: 20000000,
-      };
-
-      saveCapitalGainRecord(record);
-      const records = getCapitalGainRecords(2025);
-
-      expect(records).toHaveLength(1);
-      expect(records[0]).toMatchObject(record);
-    });
-
-    test('複数の譲渡所得記録を保存できる', () => {
-      const record1 = {
-        year: 2025,
-        propertyId: 'property-001',
-        salePrice: 50000000,
-        acquisitionCost: 30000000,
-        gain: 20000000,
-      };
-      const record2 = {
-        year: 2025,
-        propertyId: 'property-002',
-        salePrice: 100000000,
-        acquisitionCost: 60000000,
-        gain: 40000000,
-      };
-
-      saveCapitalGainRecord(record1);
-      saveCapitalGainRecord(record2);
-
-      const records = getCapitalGainRecords(2025);
-
-      expect(records).toHaveLength(2);
-    });
-
-    test('譲渡所得記録を削除できる', () => {
-      const record = {
-        year: 2025,
-        propertyId: 'property-001',
-        salePrice: 50000000,
-        acquisitionCost: 30000000,
-        gain: 20000000,
-      };
-
-      const saved = saveCapitalGainRecord(record);
-      const deleted = deleteCapitalGainRecord(saved.id);
-
-      expect(deleted).toBe(true);
-    });
-
-    test('年度別に譲渡所得記録を取得できる', () => {
-      const record2024 = { year: 2024, propertyId: 'property-001', gain: 10000000 };
-      const record2025 = { year: 2025, propertyId: 'property-002', gain: 20000000 };
-
-      saveCapitalGainRecord(record2024);
-      saveCapitalGainRecord(record2025);
-
-      const records2024 = getCapitalGainRecords(2024);
-      const records2025 = getCapitalGainRecords(2025);
-
-      expect(records2024).toHaveLength(1);
-      expect(records2025).toHaveLength(1);
-    });
-  });
-
-  describe('データ整合性', () => {
-    test('JSONシリアライズ/デシリアライズが正しく動作する', () => {
-      const data = {
-        year: 2025,
-        salary: 5000000,
-        metadata: {
-          updatedAt: new Date().toISOString(),
+        input: {
+          propertyId: 'property-001',
+          saleDate: new Date('2025-06-01'),
+          salePrice: 50000000,
+          acquisitionCost: 30000000,
+          improvementCost: 2000000,
+          sellingExpenses: 1500000,
+          ownershipPeriod: 5,
+        },
+        result: {
+          saleAmount: 50000000,
+          acquisitionCost: 30000000,
+          transferExpenses: 1500000,
+          capitalGain: 16500000,
+          specialDeduction: 0,
+          taxableCapitalGain: 16500000,
+          ownershipPeriod: { years: 5, months: 0 },
+          transferType: 'long-term' as const,
+          taxRate: 0.20,
+          incomeTax: 3300000,
+          residentTax: 0,
+          reconstructionTax: 0,
+          totalTax: 3300000,
         },
       };
 
-      saveToStorage('test-data', data);
-      const retrieved = getFromStorage('test-data');
+      (CapitalGainRecord.prototype.save as jest.Mock).mockResolvedValue(mockRecord);
 
-      expect(retrieved).toEqual(data);
-    });
-
-    test('特殊文字を含むデータを保存できる', () => {
-      const data = {
-        year: 2025,
-        notes: '特別控除: ¥3,000万円',
-      };
-
-      saveToStorage('special-chars', data);
-      const retrieved = getFromStorage('special-chars');
-
-      expect(retrieved).toEqual(data);
-    });
-
-    test('nullや未定義値を適切に処理できる', () => {
-      const data = {
-        year: 2025,
-        optionalField: null,
-        anotherField: undefined,
-      };
-
-      saveToStorage('null-test', data);
-      const retrieved = getFromStorage('null-test');
-
-      expect(retrieved.year).toBe(2025);
-    });
-  });
-
-  describe('エラーハンドリング', () => {
-    test('無効なキーでの取得は安全に処理される', () => {
-      expect(() => getFromStorage('')).not.toThrow();
-      expect(getFromStorage('')).toBeNull();
-    });
-
-    test('無効なデータの保存は安全に処理される', () => {
-      const circularData: any = { year: 2025 };
-      circularData.self = circularData;
-
-      expect(() => saveToStorage('circular', circularData)).not.toThrow();
-    });
-
-    test('存在しないキーの削除は安全に処理される', () => {
-      const result = deleteFromStorage('nonexistent');
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('パフォーマンス', () => {
-    test('大量のデータを保存できる', () => {
-      const records = Array(100).fill(null).map((_, i) => ({
-        year: 2025,
-        id: `record-${i}`,
-        value: Math.random() * 10000000,
-      }));
-
-      records.forEach((record, i) => {
-        saveToStorage(`record-${i}`, record);
+      const result = await saveCapitalGainRecord({
+        userId: 'demo-user',
+        fiscalYear: 2025,
+        propertyId: 'property-001',
+        input: mockRecord.input,
+        result: mockRecord.result,
       });
 
-      const retrieved = getFromStorage('record-0');
-      expect(retrieved).toBeDefined();
+      expect(result).toBeDefined();
+      expect(result?.fiscalYear).toBe(2025);
     });
 
-    test('高速に読み書きできる', () => {
-      const startTime = Date.now();
+    test('譲渡所得記録を取得できる', async () => {
+      const mockRecords = [
+        {
+          _id: 'cg-1',
+          fiscalYear: 2025,
+          propertyId: 'property-001',
+          input: {},
+          result: {},
+        },
+      ];
 
-      for (let i = 0; i < 100; i++) {
-        saveToStorage(`perf-${i}`, { value: i });
-        getFromStorage(`perf-${i}`);
-      }
+      (CapitalGainRecord.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockRecords),
+      });
 
-      const endTime = Date.now();
-      const duration = endTime - startTime;
+      const result = await getCapitalGainRecords({ fiscalYear: 2025 });
 
-      // 100回の読み書きが1秒以内に完了することを確認
-      expect(duration).toBeLessThan(1000);
+      expect(result).toHaveLength(1);
+      expect(result[0].fiscalYear).toBe(2025);
+    });
+
+    test('複数の譲渡所得記録を保存・取得できる', async () => {
+      const mockRecords = [
+        { _id: 'cg-1', fiscalYear: 2025, propertyId: 'property-001', input: {}, result: {} },
+        { _id: 'cg-2', fiscalYear: 2025, propertyId: 'property-002', input: {}, result: {} },
+      ];
+
+      (CapitalGainRecord.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockRecords),
+      });
+
+      const result = await getCapitalGainRecords({ fiscalYear: 2025 });
+
+      expect(result).toHaveLength(2);
+    });
+
+    test('譲渡所得記録を削除できる', async () => {
+      (CapitalGainRecord.findByIdAndDelete as jest.Mock).mockResolvedValue({});
+
+      await deleteCapitalGainRecord('cg-1');
+
+      expect(CapitalGainRecord.findByIdAndDelete).toHaveBeenCalledWith('cg-1');
+    });
+
+    test('年度別に譲渡所得記録を取得できる', async () => {
+      const mockRecords2024 = [{ _id: 'cg-2024', fiscalYear: 2024, input: {}, result: {} }];
+      const mockRecords2025 = [{ _id: 'cg-2025', fiscalYear: 2025, input: {}, result: {} }];
+
+      (CapitalGainRecord.find as jest.Mock)
+        .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(mockRecords2024) })
+        .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(mockRecords2025) });
+
+      const result2024 = await getCapitalGainRecords({ fiscalYear: 2024 });
+      const result2025 = await getCapitalGainRecords({ fiscalYear: 2025 });
+
+      expect(result2024).toHaveLength(1);
+      expect(result2025).toHaveLength(1);
+    });
+
+    test('propertyIdでフィルタできる', async () => {
+      const mockRecords = [{ _id: 'cg-1', propertyId: 'property-001', input: {}, result: {} }];
+
+      (CapitalGainRecord.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockResolvedValue(mockRecords),
+      });
+
+      const result = await getCapitalGainRecords({ propertyId: 'property-001' });
+
+      expect(result).toHaveLength(1);
     });
   });
 });

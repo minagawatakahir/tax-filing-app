@@ -117,7 +117,8 @@ describe('PropertyManagementPanel - TX-44 Frontend Module Tests', () => {
       render(<PropertyManagementPanel />);
       
       await waitFor(() => {
-        expect(screen.queryByText(/マンション渋谷|PROP-001/i)).toBeTruthy();
+        expect(screen.getAllByText('マンション渋谷').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('オフィスビル新宿').length).toBeGreaterThan(0);
       });
     });
 
@@ -127,7 +128,8 @@ describe('PropertyManagementPanel - TX-44 Frontend Module Tests', () => {
       render(<PropertyManagementPanel />);
       
       await waitFor(() => {
-        expect(screen.queryByText(/渋谷区|新宿区/i)).toBeTruthy();
+        expect(screen.getAllByText('東京都渋谷区').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('東京都新宿区').length).toBeGreaterThan(0);
       });
     });
 
