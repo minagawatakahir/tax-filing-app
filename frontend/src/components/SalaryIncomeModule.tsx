@@ -77,6 +77,17 @@ export default function SalaryIncomeModule() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showHistory]);
 
+  // 年度を切り替えたら、前の年度の計算結果を破棄し、表示中の履歴を読み込み直す
+  // （計算結果は年分ごとの税制に依存するため、別の年度として保存させない）
+  useEffect(() => {
+    setResult(null);
+    setSaveMessage(null);
+    if (showHistory) {
+      loadRecords();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFiscalYear.year]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -97,6 +108,12 @@ export default function SalaryIncomeModule() {
 
   const handleSaveResult = async () => {
     if (!result) return;
+    if (result.taxYear !== undefined && result.taxYear !== currentFiscalYear.year) {
+      setSaveMessage(
+        `❌ 計算結果は${result.taxYear}年分です。${currentFiscalYear.year}年度で保存するには再計算してください`
+      );
+      return;
+    }
 
     try {
       setSaveMessage(null);
@@ -261,7 +278,7 @@ export default function SalaryIncomeModule() {
       {/* 保存メッセージ */}
       {saveMessage && (
         <Alert
-          variant="success"
+          variant={saveMessage.startsWith('❌') ? 'error' : 'success'}
           message={saveMessage}
           closable
           onClose={() => setSaveMessage(null)}
