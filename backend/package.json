@@ -15,7 +15,8 @@
     "seed:rsu": "ts-node test-data/seed-rsu-income.ts",
     "seed:capital-gain": "ts-node test-data/seed-capital-gain.ts",
     "seed:real-estate": "ts-node test-data/seed-real-estate-income.ts",
-    "seed:all": "ts-node test-data/seed-all.ts"
+    "seed:all": "ts-node test-data/seed-all.ts",
+    "db:dedupe-salary": "ts-node scripts/dedupe-salary-income-records.ts"
   },
   "keywords": [],
   "author": "",

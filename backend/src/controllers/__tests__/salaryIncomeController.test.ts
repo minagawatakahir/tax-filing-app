@@ -2,6 +2,7 @@ import request from 'supertest';
 import express, { Express } from 'express';
 import salaryIncomeRoutes from '../../routes/salaryIncomeRoutes';
 import mongoose from 'mongoose';
+import * as salaryStorage from '../../services/salaryIncomeStorageService';
 
 // Express アプリを作成
 let app: Express;
@@ -188,6 +189,27 @@ describe('Salary Income Controller', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
+    });
+
+    it('一意制約の競合時は409を返し、保存されていないことを伝える', async () => {
+      const spy = jest
+        .spyOn(salaryStorage, 'saveSalaryIncomeRecord')
+        .mockRejectedValueOnce(Object.assign(new Error('E11000 duplicate key'), { code: 11000, keyValue: { year: 2025 } }));
+      jest.spyOn(console, 'error').mockImplementationOnce(() => undefined);
+
+      const response = await request(app)
+        .post('/api/salary-income/save')
+        .send({ year: 2025, input: { annualSalary: 5000000 }, result: { taxableIncome: 2480000 } })
+        .expect('Content-Type', /json/)
+        .expect(409);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: '2025年度のデータの保存が別の保存処理と競合したため、保存できませんでした。もう一度保存してください。',
+        code: 'DUPLICATE_YEAR',
+      });
+      expect(response.body.error).not.toContain('上書きして保存します');
+      spy.mockRestore();
     });
 
     it('should return 400 when result is missing', async () => {

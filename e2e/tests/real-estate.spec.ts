@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('不動産所得計算フロー - E2E Test', () => {
   test.beforeEach(async ({ page }) => {
+    // 初回起動時のオンボーディングモーダルが操作対象を覆わないよう、完了済みにしておく
+    await page.addInitScript(() => {
+      localStorage.setItem('tx18-onboarding-completed', 'true');
+    });
     await page.goto('/');
     await page.waitForLoadState('networkidle');
   });
@@ -60,7 +64,7 @@ test.describe('不動産所得計算フロー - E2E Test', () => {
 
   test('不動産所得計算フロー', async ({ page }) => {
     // 不動産所得モジュールに移動
-    const realEstateLink = page.locator('text=/不動産所得|rental income/i').first();
+    const realEstateLink = page.getByRole('button', { name: /^🏠\s*不動産所得$/ });
     
     if (await realEstateLink.isVisible({ timeout: 2000 })) {
       await realEstateLink.click();
@@ -82,7 +86,7 @@ test.describe('不動産所得計算フロー - E2E Test', () => {
         }
         
         // 計算ボタンをクリック
-        const calculateBtn = page.locator('button').filter({ hasText: /計算|確定/ }).first();
+        const calculateBtn = page.getByRole('button', { name: /不動産所得を計算/ });
         if (await calculateBtn.isVisible({ timeout: 1000 })) {
           await calculateBtn.click();
           await page.waitForTimeout(1000);

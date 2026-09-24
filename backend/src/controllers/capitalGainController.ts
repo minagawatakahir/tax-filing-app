@@ -75,8 +75,14 @@ export const calculateCapitalGainHandler = async (req: Request, res: Response) =
  */
 export const saveCapitalGainHandler = async (req: Request, res: Response) => {
   try {
-    const { fiscalYear, propertyId, input, result } = req.body;
+    let { fiscalYear, propertyId, input, result } = req.body;
     const userId = (req as any).userId || 'demo-user';
+
+    // 年度が指定されていない場合は、売却日から計算
+    if (!fiscalYear && input && input.saleDate) {
+      const saleDate = new Date(input.saleDate);
+      fiscalYear = saleDate.getFullYear();
+    }
 
     // バリデーション
     if (!fiscalYear || !input || !result) {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * 不動産所得の保存フロー完全テスト
@@ -15,107 +15,62 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
     await page.waitForLoadState('networkidle');
   });
 
+  /** 物件ID・月額家賃・管理費を入力して計算し、保存リクエストとその応答を返す */
+  const calculateAndSave = async (page: Page, monthlyRent: number, managementFee: number) => {
+    await page.getByRole('button', { name: /^🏠\s*不動産所得$/ }).click();
+
+    await page.locator('label:has-text("物件ID") + input').fill('property-002');
+    await page.locator('label:has-text("月額家賃") + input').fill(String(monthlyRent));
+    await page.locator('label:has-text("管理費") + input').fill(String(managementFee));
+
+    await page.getByRole('button', { name: /💰\s*不動産所得を計算/ }).click();
+    await expect(page.getByRole('heading', { name: '📊 計算結果' })).toBeVisible({ timeout: 5000 });
+
+    const dialogPromise = page.waitForEvent('dialog', { timeout: 5000 });
+    const requestPromise = page.waitForRequest(
+      (req) => req.method() === 'POST' && req.url().endsWith('/api/real-estate-income-list')
+    );
+    const responsePromise = page.waitForResponse(
+      (res) => res.request().method() === 'POST' && res.url().endsWith('/api/real-estate-income-list')
+    );
+    await page.getByRole('button', { name: /💾\s*計算結果を保存/ }).click();
+
+    const [request, response, dialog] = await Promise.all([requestPromise, responsePromise, dialogPromise]);
+    const message = dialog.message();
+    await dialog.accept();
+    return { payload: request.postDataJSON(), response, message };
+  };
+
   test('不動産所得の計算結果を保存し、履歴で確認できる', async ({ page }) => {
-    // Step 1: 不動産所得モジュールに移動
-    const realEstateButton = page.getByRole('button', { name: /不動産所得/i });
-    await realEstateButton.click();
-    await page.waitForTimeout(500);
+    const { response, message } = await calculateAndSave(page, 100000, 300000);
 
-    // Step 2: 物件を選択（ドロップダウンがある場合）
-    const propertySelect = page.locator('select').first();
-    if (await propertySelect.isVisible({ timeout: 2000 })) {
-      await propertySelect.selectOption({ index: 1 }); // 最初の物件を選択
-      await page.waitForTimeout(500);
-    }
-
-    // Step 3: 家賃収入を入力
-    const rentalIncomeInput = page.locator('input[placeholder*="家賃|賃料"]').first();
-    if (await rentalIncomeInput.isVisible({ timeout: 2000 })) {
-      await rentalIncomeInput.fill('1200000');
-    }
-
-    // Step 4: 経費を入力
-    const expenseInputs = page.locator('input[placeholder*="経費|管理費|修繕"]');
-    const expenseCount = await expenseInputs.count();
-    if (expenseCount > 0) {
-      await expenseInputs.first().fill('300000');
-    }
-
-    // Step 5: 計算ボタンをクリック
-    const calculateButton = page.getByRole('button', { name: /計算|計算する|所得を計算/i });
-    if (await calculateButton.isVisible({ timeout: 2000 })) {
-      await calculateButton.click();
-      await page.waitForTimeout(1000);
-    }
-
-    // Step 6: 計算結果が表示されることを確認
-    const resultSection = page.locator('text=/不動産所得|差引所得金額/i');
-    await expect(resultSection.first()).toBeVisible({ timeout: 5000 });
-
-    // Step 7: 保存ボタンをクリック
-    const saveButton = page.getByRole('button', { name: /この結果を保存|保存|登録/i });
-    if (await saveButton.isVisible({ timeout: 2000 })) {
-      await saveButton.click();
-      await page.waitForTimeout(1000);
-
-      // Step 8: 成功メッセージが表示されることを確認
-      const successMessage = page.locator('text=/保存しました|確認できます|✅/i');
-      await expect(successMessage).toBeVisible({ timeout: 3000 });
-    }
+    expect(response.status()).toBe(201);
+    expect(message).toMatch(/保存しました/);
+    // 保存後は不動産所得一覧へ遷移する
+    await expect(page.getByRole('heading', { name: /不動産所得一覧/ })).toBeVisible({ timeout: 5000 });
   });
 
   test('複数の不動産物件の所得を管理できる', async ({ page }) => {
     // 不動産所得一覧モジュールに移動
-    const realEstateListButton = page.getByRole('button', { name: /不動産所得一覧|物件別所得/i });
-    if (await realEstateListButton.isVisible({ timeout: 2000 })) {
-      await realEstateListButton.click();
-      await page.waitForTimeout(500);
-
-      // 一覧が表示されることを確認
-      const listItems = page.locator('tr, .list-item, [data-testid*="property"]');
-      const itemCount = await listItems.count();
-      expect(itemCount).toBeGreaterThanOrEqual(0);
-    }
+    await page.getByRole('button', { name: /不動産所得一覧/ }).click();
+    await expect(page.getByRole('heading', { name: /年 不動産所得一覧/ })).toBeVisible({ timeout: 5000 });
   });
 
   test('不動産所得の詳細情報が正しく保存される', async ({ page }) => {
-    // 不動産所得モジュールに移動
-    const realEstateButton = page.getByRole('button', { name: /不動産所得/i });
-    await realEstateButton.click();
-    await page.waitForTimeout(500);
+    const { payload, response } = await calculateAndSave(page, 125000, 60000);
 
-    // 物件選択
-    const propertySelect = page.locator('select').first();
-    if (await propertySelect.isVisible({ timeout: 2000 })) {
-      await propertySelect.selectOption({ index: 1 });
-      await page.waitForTimeout(500);
-    }
-
-    // 入力フィールドを記録
-    const rentalIncomeInput = page.locator('input[placeholder*="家賃|賃料"]').first();
-    const testAmount = '1500000';
-    if (await rentalIncomeInput.isVisible({ timeout: 2000 })) {
-      await rentalIncomeInput.fill(testAmount);
-    }
-
-    // 計算
-    const calculateButton = page.getByRole('button', { name: /計算|計算する/i });
-    if (await calculateButton.isVisible({ timeout: 2000 })) {
-      await calculateButton.click();
-      await page.waitForTimeout(1000);
-    }
-
-    // 保存
-    const saveButton = page.getByRole('button', { name: /この結果を保存|保存/i });
-    if (await saveButton.isVisible({ timeout: 2000 })) {
-      await saveButton.click();
-      await page.waitForTimeout(1000);
-    }
-
-    // 保存された金額が表示されることを確認
-    const displayedAmount = page.locator(`text=/${testAmount}|1,500,000/i`);
-    const isVisible = await displayedAmount.isVisible({ timeout: 2000 }).catch(() => false);
-    expect(isVisible || true).toBe(true); // 表示されない場合もあるため検証を緩和
+    expect(response.status()).toBe(201);
+    // 入力値がそのまま保存リクエストに含まれる
+    expect(payload).toMatchObject({
+      propertyId: 'property-002',
+      monthlyRent: 125000,
+      months: 12,
+      managementFee: 60000,
+    });
+    // 計算結果（家賃 125,000円 × 12か月）も保存される
+    expect(payload.totalIncome).toBe(1500000);
+    expect(typeof payload.fiscalYear).toBe('number');
+    expect(payload.realEstateIncome).toBe(payload.totalIncome - payload.totalExpenses);
   });
 
   test('年度ごとに異なる不動産所得データを管理できる', async ({ page }) => {

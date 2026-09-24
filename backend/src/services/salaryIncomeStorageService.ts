@@ -1,5 +1,5 @@
 import { SalaryIncomeRecord, ISalaryIncomeRecord } from '../models/SalaryIncomeRecord';
-import { SalaryIncomeResult } from './salaryIncomeService';
+import { StoredSalaryIncomeResult } from './salaryIncomeService';
 
 export interface SaveSalaryIncomeRecordParams {
   userId?: string;
@@ -12,12 +12,24 @@ export interface SaveSalaryIncomeRecordParams {
     dependents?: number;
     spouseDeduction?: boolean;
   };
-  result: SalaryIncomeResult;
+  result: StoredSalaryIncomeResult;
 }
 
 export const saveSalaryIncomeRecord = async (
-  params: SaveSalaryIncomeRecordParams
+  params: SaveSalaryIncomeRecordParams,
+  options?: { upsert?: boolean }
 ): Promise<ISalaryIncomeRecord> => {
+  // upsertオプションがある場合は、既存レコードを上書き
+  if (options?.upsert) {
+    const result = await SalaryIncomeRecord.findOneAndUpdate(
+      { userId: params.userId || 'demo-user', year: params.year },
+      { $set: params },
+      { upsert: true, new: true, runValidators: true }
+    );
+    return result as ISalaryIncomeRecord;
+  }
+
+  // 通常の保存
   const record = new SalaryIncomeRecord(params);
   return await record.save();
 };

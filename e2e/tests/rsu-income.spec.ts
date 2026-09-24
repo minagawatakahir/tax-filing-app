@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('RSU所得計算フロー - E2E Test', () => {
   test.beforeEach(async ({ page }) => {
+    // 初回起動時のオンボーディングモーダルが操作対象を覆わないよう、完了済みにしておく
+    await page.addInitScript(() => {
+      localStorage.setItem('tx18-onboarding-completed', 'true');
+    });
     await page.goto('/');
     await page.waitForLoadState('networkidle');
   });
@@ -40,7 +44,7 @@ test.describe('RSU所得計算フロー - E2E Test', () => {
         }
         
         // 計算ボタンをクリック
-        const calculateBtn = page.locator('button').filter({ hasText: /計算|一括|確定/ }).first();
+        const calculateBtn = page.getByRole('button', { name: /^一括計算$/ });
         if (await calculateBtn.isVisible({ timeout: 1000 })) {
           await calculateBtn.click();
           await page.waitForTimeout(1500);
@@ -58,10 +62,9 @@ test.describe('RSU所得計算フロー - E2E Test', () => {
       
       // 為替レート表示の存在確認
       const rateText = page.locator('text=/レート|rate|¥|USD/i');
+      await expect(rateText.first()).toBeVisible({ timeout: 3000 });
       
-      if (await rateText.isVisible({ timeout: 3000 })) {
-        expect(await rateText.count()).toBeGreaterThan(0);
-      }
+      expect(await rateText.count()).toBeGreaterThan(0);
     }
   });
 

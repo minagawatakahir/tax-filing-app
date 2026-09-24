@@ -18,6 +18,7 @@ export const calculateSalaryIncomeHandler = async (req: Request, res: Response) 
       lifeInsurance,
       dependents,
       spouseDeduction,
+      fiscalYear,
     } = req.body;
 
     // バリデーション
@@ -35,9 +36,16 @@ export const calculateSalaryIncomeHandler = async (req: Request, res: Response) 
       lifeInsurance: parseFloat(lifeInsurance),
       dependents: parseInt(dependents) || 0,
       spouseDeduction: spouseDeduction || false,
+      fiscalYear: fiscalYear !== undefined && fiscalYear !== null ? parseInt(fiscalYear, 10) : undefined,
     };
 
-    const result = calculateSalaryIncome(input);
+    let result;
+    try {
+      result = calculateSalaryIncome(input);
+    } catch (e: any) {
+      // 対応していない年分など入力起因のエラー
+      return res.status(400).json({ success: false, error: e.message });
+    }
 
     res.json({
       success: true,
@@ -53,6 +61,7 @@ export const calculateSalaryIncomeHandler = async (req: Request, res: Response) 
 
 /**
  * 給与所得計算結果を保存
+ * 同じユーザー・年度の場合は上書き (upsert)
  */
 export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
   try {
@@ -67,12 +76,13 @@ export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
       });
     }
 
+    // upsert: 同じ userId + year の場合は更新、なければ新規作成
     const savedRecord = await saveSalaryIncomeRecord({
       userId,
       year,
       input,
       result,
-    });
+    }, { upsert: true }); // upsert オプション追加
 
     res.json({
       success: true,
@@ -80,10 +90,22 @@ export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
         id: savedRecord._id,
         year: savedRecord.year,
         createdAt: savedRecord.createdAt,
+        updatedAt: savedRecord.updatedAt, // 更新日時も返す
       },
     });
   } catch (error: any) {
     console.error('Error saving salary income record:', error);
+    
+    // ユニーク制約エラー（upsert のため、同じ年度への保存が同時に行われて競合した場合のみ発生する）
+    // このリクエストでは保存されていないため、再試行を促す
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        error: `${error.keyValue?.year ?? ''}年度のデータの保存が別の保存処理と競合したため、保存できませんでした。もう一度保存してください。`,
+        code: 'DUPLICATE_YEAR',
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message || '保存に失敗しました',

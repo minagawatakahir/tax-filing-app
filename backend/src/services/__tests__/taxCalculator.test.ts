@@ -1,310 +1,441 @@
 import {
-  calculateIncomeTax,
-  calculateResidentTax,
-  calculateSocialInsurance,
-  calculateTotalTaxAndInsurance,
-  getTaxBracket,
+  calculateTax,
+  generateTaxSavingsSuggestions,
+  IncomeData,
+  ExpenseData,
+  TaxCalculationResult,
 } from '../taxCalculator';
+import { defaultTaxYear } from '../taxRules';
 
 describe('taxCalculator - TX-45 Backend Services Tests', () => {
-  describe('getTaxBracket', () => {
-    test('195万円以下の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(1000000);
+  describe('calculateTax - 基本的な計算', () => {
+    test('総所得と総経費が正しく計算される', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+        otherIncome: 500000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 600000,
+        utilityExpense: 200000,
+        suppliesExpense: 150000,
+        travelExpense: 100000,
+        communicationExpense: 50000,
+        otherExpense: 100000,
+      };
 
-      expect(bracket.rate).toBe(0.05);
-      expect(bracket.deduction).toBeDefined();
+      const result = calculateTax(income, expense);
+
+      expect(result.totalIncome).toBe(5500000); // 5000000 + 500000
+      expect(result.totalExpense).toBe(1200000); // 600000+200000+150000+100000+50000+100000
     });
 
-    test('195万円超330万円以下の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(2500000);
+    test('optional フィールドがない場合も計算できる', () => {
+      const income: IncomeData = {
+        businessIncome: 3000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 400000,
+        utilityExpense: 100000,
+        suppliesExpense: 50000,
+        travelExpense: 50000,
+        communicationExpense: 30000,
+      };
 
-      expect(bracket.rate).toBe(0.1);
-      expect(bracket.deduction).toBeDefined();
+      const result = calculateTax(income, expense);
+
+      expect(result.totalIncome).toBe(3000000);
+      expect(result.totalExpense).toBe(630000);
+      expect(result.netIncome).toBe(2370000);
     });
 
-    test('330万円超695万円以下の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(5000000);
+    test('純所得が負の場合、0にフロアされる', () => {
+      const income: IncomeData = {
+        businessIncome: 500000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 600000,
+        utilityExpense: 100000,
+        suppliesExpense: 50000,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
 
-      expect(bracket.rate).toBe(0.2);
-      expect(bracket.deduction).toBeDefined();
-    });
+      const result = calculateTax(income, expense);
 
-    test('695万円超900万円以下の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(8000000);
-
-      expect(bracket.rate).toBe(0.23);
-      expect(bracket.deduction).toBeDefined();
-    });
-
-    test('900万円超1800万円以下の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(15000000);
-
-      expect(bracket.rate).toBe(0.33);
-      expect(bracket.deduction).toBeDefined();
-    });
-
-    test('1800万円超4000万円以下の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(30000000);
-
-      expect(bracket.rate).toBe(0.4);
-      expect(bracket.deduction).toBeDefined();
-    });
-
-    test('4000万円超の所得の税率を取得できる', () => {
-      const bracket = getTaxBracket(50000000);
-
-      expect(bracket.rate).toBe(0.45);
-      expect(bracket.deduction).toBeDefined();
-    });
-  });
-
-  describe('calculateIncomeTax', () => {
-    test('給与所得のみの所得税が計算される', () => {
-      const salary = 5000000;
-      const result = calculateIncomeTax(salary);
-
-      expect(result).toBeGreaterThan(0);
-      expect(typeof result).toBe('number');
-    });
-
-    test('給与所得と配当所得を合算した所得税が計算される', () => {
-      const salary = 5000000;
-      const dividend = 1000000;
-      const result = calculateIncomeTax(salary + dividend);
-
-      expect(result).toBeGreaterThan(calculateIncomeTax(salary));
-    });
-
-    test('0円の所得に対して0円の所得税が計算される', () => {
-      const result = calculateIncomeTax(0);
-
-      expect(result).toBe(0);
-    });
-
-    test('基礎控除が適用される', () => {
-      const smallIncome = 480000;
-      const result = calculateIncomeTax(smallIncome);
-
-      expect(result).toBeLessThanOrEqual(0);
-    });
-
-    test('高額所得の所得税が正しく計算される', () => {
-      const largeIncome = 50000000;
-      const result = calculateIncomeTax(largeIncome);
-
-      expect(result).toBeGreaterThan(0);
-      // 最高税率45%が適用される
-      expect(result / largeIncome).toBeLessThan(0.45);
-    });
-
-    test('複数年度の所得に対応できる', () => {
-      const income2024 = 5000000;
-      const income2025 = 6000000;
-
-      const tax2024 = calculateIncomeTax(income2024);
-      const tax2025 = calculateIncomeTax(income2025);
-
-      expect(tax2025).toBeGreaterThan(tax2024);
-    });
-  });
-
-  describe('calculateResidentTax', () => {
-    test('住民税が計算される', () => {
-      const salary = 5000000;
-      const result = calculateResidentTax(salary);
-
-      expect(result).toBeGreaterThan(0);
-      expect(typeof result).toBe('number');
-    });
-
-    test('住民税の税率は約10%である', () => {
-      const salary = 5000000;
-      const result = calculateResidentTax(salary);
-
-      // 基礎控除を考慮した計算
-      expect(result / salary).toBeLessThan(0.15);
-      expect(result / salary).toBeGreaterThan(0.05);
-    });
-
-    test('0円の所得に対して0円の住民税が計算される', () => {
-      const result = calculateResidentTax(0);
-
-      expect(result).toBe(0);
-    });
-
-    test('高額所得の住民税が計算される', () => {
-      const largeIncome = 50000000;
-      const result = calculateResidentTax(largeIncome);
-
-      expect(result).toBeGreaterThan(0);
-    });
-  });
-
-  describe('calculateSocialInsurance', () => {
-    test('社会保険料が計算される', () => {
-      const salary = 5000000;
-      const result = calculateSocialInsurance(salary);
-
-      expect(result).toBeGreaterThan(0);
-      expect(typeof result).toBe('number');
-    });
-
-    test('給与に対する社会保険料率が約15%である', () => {
-      const salary = 5000000;
-      const result = calculateSocialInsurance(salary);
-
-      expect(result / salary).toBeGreaterThan(0.1);
-      expect(result / salary).toBeLessThan(0.2);
-    });
-
-    test('0円の給与に対して0円の社会保険料が計算される', () => {
-      const result = calculateSocialInsurance(0);
-
-      expect(result).toBe(0);
-    });
-
-    test('高額給与の社会保険料が計算される', () => {
-      const largeIncome = 50000000;
-      const result = calculateSocialInsurance(largeIncome);
-
-      expect(result).toBeGreaterThan(0);
-    });
-
-    test('上限額が適用される場合がある', () => {
-      const veryLargeIncome = 200000000;
-      const normalIncome = 50000000;
-
-      const resultLarge = calculateSocialInsurance(veryLargeIncome);
-      const resultNormal = calculateSocialInsurance(normalIncome);
-
-      // 社会保険料に上限がある場合、比率が小さくなるはず
-      expect(resultLarge / veryLargeIncome).toBeLessThan(resultNormal / normalIncome);
-    });
-  });
-
-  describe('calculateTotalTaxAndInsurance', () => {
-    test('所得税、住民税、社会保険料の合計が計算される', () => {
-      const salary = 5000000;
-      const result = calculateTotalTaxAndInsurance(salary);
-
-      expect(result).toHaveProperty('incomeTax');
-      expect(result).toHaveProperty('residentTax');
-      expect(result).toHaveProperty('socialInsurance');
-      expect(result).toHaveProperty('total');
-    });
-
-    test('合計額が各税の合算と一致する', () => {
-      const salary = 5000000;
-      const result = calculateTotalTaxAndInsurance(salary);
-
-      const expectedTotal = 
-        result.incomeTax + 
-        result.residentTax + 
-        result.socialInsurance;
-
-      expect(result.total).toBe(expectedTotal);
-    });
-
-    test('0円の所得に対して全て0になる', () => {
-      const result = calculateTotalTaxAndInsurance(0);
-
+      expect(result.netIncome).toBe(0);
+      expect(result.taxableIncome).toBe(0);
       expect(result.incomeTax).toBe(0);
-      expect(result.residentTax).toBe(0);
-      expect(result.socialInsurance).toBe(0);
-      expect(result.total).toBe(0);
-    });
-
-    test('高額所得の税負担が計算される', () => {
-      const largeIncome = 50000000;
-      const result = calculateTotalTaxAndInsurance(largeIncome);
-
-      expect(result.total).toBeGreaterThan(0);
-      // 税負担率は50%未満であるべき
-      expect(result.total / largeIncome).toBeLessThan(0.5);
-    });
-
-    test('異なる所得レベルで比較できる', () => {
-      const income1 = 3000000;
-      const income2 = 5000000;
-      const income3 = 10000000;
-
-      const result1 = calculateTotalTaxAndInsurance(income1);
-      const result2 = calculateTotalTaxAndInsurance(income2);
-      const result3 = calculateTotalTaxAndInsurance(income3);
-
-      expect(result1.total).toBeLessThan(result2.total);
-      expect(result2.total).toBeLessThan(result3.total);
-    });
-
-    test('複数の所得源がある場合を計算できる', () => {
-      const salary = 3000000;
-      const dividend = 1000000;
-      const rentalIncome = 1500000;
-      const totalIncome = salary + dividend + rentalIncome;
-
-      const result = calculateTotalTaxAndInsurance(totalIncome);
-
-      expect(result.total).toBeGreaterThan(0);
     });
   });
 
-  describe('税計算のエッジケース', () => {
-    test('最低税率が適用される所得', () => {
-      const income = 100000;
-      const result = calculateIncomeTax(income);
+  const noExpense: ExpenseData = {
+    rentExpense: 0,
+    utilityExpense: 0,
+    suppliesExpense: 0,
+    travelExpense: 0,
+    communicationExpense: 0,
+  };
+  const business = (amount: number): IncomeData => ({ businessIncome: amount });
 
-      expect(result).toBeGreaterThanOrEqual(0);
+  describe('calculateTax - 年分別の基礎控除', () => {
+    test('令和6年分: 基礎控除48万円', () => {
+      const result = calculateTax(business(1000000), noExpense, 2024);
+
+      expect(result.taxYear).toBe(2024);
+      expect(result.basicDeduction).toBe(480000);
+      expect(result.taxableIncome).toBe(520000);
     });
 
-    test('税率区分の境界値での計算', () => {
-      // 195万円（第1段階と第2段階の境界）
-      const boundaryIncome = 1950000;
-      const result = calculateIncomeTax(boundaryIncome);
+    test('令和7年分: 合計所得132万円以下は基礎控除95万円', () => {
+      const result = calculateTax(business(1000000), noExpense, 2025);
 
-      expect(result).toBeGreaterThan(0);
+      expect(result.basicDeduction).toBe(950000);
+      expect(result.taxableIncome).toBe(50000);
     });
 
-    test('基礎控除との相互作用', () => {
-      const incomeAboveBasicDeduction = 1000000;
-      const result = calculateIncomeTax(incomeAboveBasicDeduction);
+    test('令和7年分: 合計所得300万円は基礎控除88万円', () => {
+      const result = calculateTax(business(3000000), noExpense, 2025);
 
-      expect(result).toBeGreaterThan(0);
+      expect(result.basicDeduction).toBe(880000);
+      expect(result.taxableIncome).toBe(2120000);
+    });
+
+    test('年分を省略した場合は前年分で計算', () => {
+      const result = calculateTax(business(1000000), noExpense);
+
+      expect(result.taxYear).toBe(defaultTaxYear());
+      expect(result.isProvisional).toBe(false);
+      expect(result.notice).toBeUndefined();
+    });
+
+    test('令和8年分: 合計所得489万円以下は基礎控除104万円', () => {
+      const result = calculateTax(business(4000000), noExpense, 2026);
+
+      expect(result.basicDeduction).toBe(1040000);
+      expect(result.taxableIncome).toBe(2960000);
+      // 2,960,000 × 10% − 97,500 = 198,500、復興 = floor(198,500 × 2.1%) = 4,168
+      expect(result.baseIncomeTax).toBe(198500);
+      expect(result.reconstructionTax).toBe(4168);
+    });
+
+    test('合計所得2,500万円超は基礎控除なし', () => {
+      const result = calculateTax(business(30000000), noExpense, 2024);
+
+      expect(result.basicDeduction).toBe(0);
+      expect(result.taxableIncome).toBe(30000000);
+    });
+
+    test('基礎控除により課税所得がゼロになる場合は税額ゼロ', () => {
+      const result = calculateTax(business(400000), noExpense, 2024);
+
+      expect(result.taxableIncome).toBe(0);
+      expect(result.baseIncomeTax).toBe(0);
+      expect(result.reconstructionTax).toBe(0);
+      expect(result.incomeTax).toBe(0);
+    });
+
+    test('2028年分以後は暫定ルール（注意書き付き）、基礎控除は令和10年分以後の額', () => {
+      const result = calculateTax(business(1000000), noExpense, 2028);
+
+      expect(result.isProvisional).toBe(true);
+      expect(result.notice).toContain('暫定');
+      expect(result.basicDeduction).toBe(990000);
+    });
+
+    test('対応外の年分はエラー', () => {
+      expect(() => calculateTax(business(1000000), noExpense, 2019)).toThrow('2019年分');
     });
   });
 
-  describe('実務的なシナリオ', () => {
-    test('サラリーマンの税負担を計算できる', () => {
-      const salary = 5000000;
-      const result = calculateTotalTaxAndInsurance(salary);
+  describe('calculateTax - 所得税及び復興特別所得税', () => {
+    test('令和6年分・所得100万円: 所得税26,000円 + 復興特別所得税546円', () => {
+      const result = calculateTax(business(1000000), noExpense, 2024);
 
-      expect(result.incomeTax).toBeGreaterThan(0);
-      expect(result.residentTax).toBeGreaterThan(0);
-      expect(result.socialInsurance).toBeGreaterThan(0);
-
-      // 手取り額を計算
-      const netIncome = salary - result.total;
-      expect(netIncome).toBeGreaterThan(0);
-      expect(netIncome).toBeLessThan(salary);
+      expect(result.baseIncomeTax).toBe(26000);
+      expect(result.reconstructionTax).toBe(546);
+      expect(result.incomeTax).toBe(26546);
     });
 
-    test('フリーランスの税負担を計算できる', () => {
-      const businessIncome = 5000000;
-      const businessExpense = 1500000;
-      const taxableIncome = businessIncome - businessExpense;
+    test('令和7年分・所得100万円: 所得税2,500円 + 復興特別所得税52円', () => {
+      const result = calculateTax(business(1000000), noExpense, 2025);
 
-      const result = calculateTotalTaxAndInsurance(taxableIncome);
-
-      expect(result.total).toBeGreaterThan(0);
+      expect(result.baseIncomeTax).toBe(2500);
+      expect(result.reconstructionTax).toBe(52);
+      expect(result.incomeTax).toBe(2552);
     });
 
-    test('複合所得者の税負担を計算できる', () => {
-      const salary = 4000000;
-      const rentalIncome = 2000000;
-      const totalIncome = salary + rentalIncome;
+    test('令和7年分・所得300万円: 10%区分', () => {
+      const result = calculateTax(business(3000000), noExpense, 2025);
 
-      const result = calculateTotalTaxAndInsurance(totalIncome);
+      // 2,120,000 × 10% − 97,500 = 114,500、復興 = floor(114,500 × 2.1%) = 2,404
+      expect(result.baseIncomeTax).toBe(114500);
+      expect(result.reconstructionTax).toBe(2404);
+      expect(result.incomeTax).toBe(116904);
+    });
 
-      expect(result.incomeTax).toBeGreaterThan(calculateIncomeTax(salary));
+    test('課税所得は1,000円未満切捨て', () => {
+      const result = calculateTax(business(1000999), noExpense, 2024);
+
+      expect(result.taxableIncome).toBe(520000);
+      expect(result.baseIncomeTax).toBe(26000);
+    });
+
+    test('1,800万円超4,000万円以下は40%（控除額2,796,000円）', () => {
+      const result = calculateTax(business(20480000), noExpense, 2024);
+
+      expect(result.taxableIncome).toBe(20000000);
+      expect(result.baseIncomeTax).toBe(5204000);
+      expect(result.reconstructionTax).toBe(109284);
+    });
+
+    test('4,000万円超は45%（控除額4,796,000円）', () => {
+      const result = calculateTax(business(50000000), noExpense, 2024);
+
+      expect(result.taxableIncome).toBe(50000000);
+      expect(result.baseIncomeTax).toBe(17704000);
+    });
+  });
+
+  describe('calculateTax - 住民税の計算', () => {
+    test('住民税の基礎控除が43万円で計算される', () => {
+      // 純所得1000000、住民税課税所得 = max(0, 1000000 - 430000) = 570000
+      // 住民税 = round(570000 * 0.1) + 5000 = 57000 + 5000 = 62000
+      const income: IncomeData = {
+        businessIncome: 1000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 0,
+        suppliesExpense: 0,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
+
+      const result = calculateTax(income, expense);
+
+      expect(result.netIncome).toBe(1000000);
+      expect(result.inhabTax).toBe(62000); // round(570000 * 0.1) + 5000
+    });
+
+    test('純所得が43万円以下の場合、住民税はゼロ', () => {
+      const income: IncomeData = {
+        businessIncome: 400000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 0,
+        suppliesExpense: 0,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
+
+      const result = calculateTax(income, expense);
+
+      expect(result.netIncome).toBe(400000);
+      expect(result.inhabTax).toBe(0);
+    });
+
+    test('純所得43万円ちょうどの場合、住民税はゼロ', () => {
+      const income: IncomeData = {
+        businessIncome: 430000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 0,
+        suppliesExpense: 0,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
+
+      const result = calculateTax(income, expense);
+
+      expect(result.netIncome).toBe(430000);
+      expect(result.inhabTax).toBe(0);
+    });
+
+    test('住民税は純所得 - 43万円に10%を乗じて計算される', () => {
+      // 純所得 5000000、住民税課税所得 = 5000000 - 430000 = 4570000
+      // 住民税 = round(4570000 * 0.1) + 5000 = 457000 + 5000 = 462000
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 0,
+        suppliesExpense: 0,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
+
+      const result = calculateTax(income, expense);
+
+      expect(result.inhabTax).toBe(462000);
+    });
+  });
+
+  describe('calculateTax - 合計税額', () => {
+    test('合計税額 = 所得税 + 住民税', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 500000,
+        utilityExpense: 100000,
+        suppliesExpense: 50000,
+        travelExpense: 50000,
+        communicationExpense: 30000,
+        otherExpense: 50000,
+      };
+
+      const result = calculateTax(income, expense);
+
+      expect(result.totalTax).toBe(result.incomeTax + result.inhabTax);
+    });
+
+    test('ゼロ収入の場合、合計税額はゼロ', () => {
+      const income: IncomeData = {
+        businessIncome: 0,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 0,
+        suppliesExpense: 0,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
+
+      const result = calculateTax(income, expense);
+
+      expect(result.totalTax).toBe(0);
+      expect(result.incomeTax).toBe(0);
+      expect(result.inhabTax).toBe(0);
+    });
+  });
+
+  describe('generateTaxSavingsSuggestions - 節税提案', () => {
+    test('経費率が30%未満の場合、提案が生成される', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 50000,
+        suppliesExpense: 50000,
+        travelExpense: 30000,
+        communicationExpense: 20000,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions.some(s => s.includes('経費率'))).toBe(true);
+    });
+
+    test('家賃がゼロの場合、家賃計上の提案が生成される', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 500000,
+        suppliesExpense: 500000,
+        travelExpense: 500000,
+        communicationExpense: 500000,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      expect(suggestions.some(s => s.includes('家賃'))).toBe(true);
+    });
+
+    test('消耗品費がゼロの場合、消耗品費計上の提案が生成される', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 500000,
+        utilityExpense: 200000,
+        suppliesExpense: 0,
+        travelExpense: 200000,
+        communicationExpense: 200000,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      expect(suggestions.some(s => s.includes('消耗品'))).toBe(true);
+    });
+
+    test('経費率が30%以上で、家賃と消耗品費がある場合、提案はない', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 1000000,
+        utilityExpense: 200000,
+        suppliesExpense: 200000,
+        travelExpense: 100000,
+        communicationExpense: 100000,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      expect(suggestions.length).toBe(0);
+    });
+
+    test('全ての経費がゼロで経費率0%の場合、複数の提案が生成される', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 0,
+        suppliesExpense: 0,
+        travelExpense: 0,
+        communicationExpense: 0,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      expect(suggestions.length).toBe(3); // 経費率低い、家賃なし、消耗品費なし
+    });
+
+    test('経費率が正確に計算される', () => {
+      const income: IncomeData = {
+        businessIncome: 10000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 500000,
+        utilityExpense: 500000,
+        suppliesExpense: 500000,
+        travelExpense: 500000,
+        communicationExpense: 500000,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      // 総経費2500000 / 総所得10000000 = 0.25 (25%) < 30%
+      expect(suggestions.some(s => s.includes('経費率'))).toBe(true);
+    });
+
+    test('otherIncome と otherExpense がある場合も正しく計算される', () => {
+      const income: IncomeData = {
+        businessIncome: 5000000,
+        otherIncome: 1000000,
+      };
+      const expense: ExpenseData = {
+        rentExpense: 0,
+        utilityExpense: 200000,
+        suppliesExpense: 200000,
+        travelExpense: 100000,
+        communicationExpense: 100000,
+        otherExpense: 100000,
+      };
+
+      const suggestions = generateTaxSavingsSuggestions(income, expense);
+
+      // 総経費700000 / 総所得6000000 = 0.1167 (11.67%) < 30%
+      expect(suggestions.some(s => s.includes('経費率'))).toBe(true);
+      expect(suggestions.some(s => s.includes('家賃'))).toBe(true);
     });
   });
 });

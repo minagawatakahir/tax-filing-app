@@ -2,13 +2,17 @@ import { test, expect } from '@playwright/test';
 
 test.describe('ダッシュボード - E2E Test', () => {
   test.beforeEach(async ({ page }) => {
+    // 初回起動時のオンボーディングモーダルが操作対象を覆わないよう、完了済みにしておく
+    await page.addInitScript(() => {
+      localStorage.setItem('tx18-onboarding-completed', 'true');
+    });
     await page.goto('/');
     await page.waitForLoadState('networkidle');
   });
 
   test('ダッシュボードが正常に読み込まれる', async ({ page }) => {
     // ページのタイトルを確認
-    await expect(page).toHaveTitle(/Tax Filing|確定申告|Dashboard/i);
+    await expect(page).toHaveTitle(/確定申告/);
   });
 
   test('ダッシュボード要素が表示される', async ({ page }) => {

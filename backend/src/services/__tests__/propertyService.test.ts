@@ -106,19 +106,19 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
   describe('getPropertyById', () => {
     test('IDで物件を取得できる', async () => {
       MockedProperty.findById = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockProperty),
+        lean: jest.fn().mockResolvedValue(mockProperty),
       } as any);
 
       const result = await getPropertyById('507f1f77bcf86cd799439011');
 
       expect(result).toBeDefined();
-      expect(result?._id).toBe(mockProperty._id);
-      expect(result?.propertyName).toBe(mockProperty.propertyName);
+      expect(result!._id).toBe(mockProperty._id);
+      expect(result!.propertyName).toBe(mockProperty.propertyName);
     });
 
     test('存在しない物件はnullを返す', async () => {
       MockedProperty.findById = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
+        lean: jest.fn().mockResolvedValue(null),
       } as any);
 
       const result = await getPropertyById('invalid-id');
@@ -127,9 +127,9 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     });
 
     test('エラー時に例外を投げる', async () => {
-      MockedProperty.findById = jest.fn().mockRejectedValue(
-        new Error('Database error')
-      );
+      MockedProperty.findById = jest.fn().mockReturnValue({
+        lean: jest.fn().mockRejectedValue(new Error('Database error')),
+      } as any);
 
       await expect(getPropertyById('507f1f77bcf86cd799439011')).rejects.toThrow();
     });
@@ -143,7 +143,7 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
       };
 
       MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue({
+        lean: jest.fn().mockResolvedValue({
           ...mockProperty,
           propertyName: '新しい物件名',
         }),
@@ -151,12 +151,12 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
 
       const result = await updateProperty('507f1f77bcf86cd799439011', updatedData);
 
-      expect(result?.propertyName).toBe('新しい物件名');
+      expect(result!.propertyName).toBe('新しい物件名');
     });
 
     test('部分更新ができる', async () => {
       MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue({
+        lean: jest.fn().mockResolvedValue({
           ...mockProperty,
           outstandingLoan: 35000000,
         }),
@@ -166,12 +166,12 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
         outstandingLoan: 35000000,
       });
 
-      expect(result?.outstandingLoan).toBe(35000000);
+      expect(result!.outstandingLoan).toBe(35000000);
     });
 
     test('存在しない物件の更新はnullを返す', async () => {
       MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
+        lean: jest.fn().mockResolvedValue(null),
       } as any);
 
       const result = await updateProperty('invalid-id', mockPropertyData);
@@ -180,9 +180,9 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     });
 
     test('エラー時に例外を投げる', async () => {
-      MockedProperty.findByIdAndUpdate = jest.fn().mockRejectedValue(
-        new Error('Database error')
-      );
+      MockedProperty.findByIdAndUpdate = jest.fn().mockReturnValue({
+        lean: jest.fn().mockRejectedValue(new Error('Database error')),
+      } as any);
 
       await expect(
         updateProperty('507f1f77bcf86cd799439011', mockPropertyData)
@@ -193,18 +193,18 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
   describe('deleteProperty', () => {
     test('物件を削除できる', async () => {
       MockedProperty.findByIdAndDelete = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockProperty),
+        lean: jest.fn().mockResolvedValue(mockProperty),
       } as any);
 
       const result = await deleteProperty('507f1f77bcf86cd799439011');
 
       expect(result).toBeDefined();
-      expect(result?._id).toBe(mockProperty._id);
+      expect(result!._id).toBe(mockProperty._id);
     });
 
     test('存在しない物件の削除はnullを返す', async () => {
       MockedProperty.findByIdAndDelete = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
+        lean: jest.fn().mockResolvedValue(null),
       } as any);
 
       const result = await deleteProperty('invalid-id');
@@ -213,9 +213,9 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     });
 
     test('エラー時に例外を投げる', async () => {
-      MockedProperty.findByIdAndDelete = jest.fn().mockRejectedValue(
-        new Error('Database error')
-      );
+      MockedProperty.findByIdAndDelete = jest.fn().mockReturnValue({
+        lean: jest.fn().mockRejectedValue(new Error('Database error')),
+      } as any);
 
       await expect(deleteProperty('507f1f77bcf86cd799439011')).rejects.toThrow();
     });
@@ -225,7 +225,9 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     test('すべての物件を取得できる', async () => {
       const mockProperties = [mockProperty, { ...mockProperty, _id: '507f1f77bcf86cd799439012' }];
       MockedProperty.find = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockProperties),
+        sort: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue(mockProperties),
+        }),
       } as any);
 
       const result = await getAllProperties();
@@ -236,7 +238,9 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
 
     test('物件がない場合は空配列を返す', async () => {
       MockedProperty.find = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue([]),
+        sort: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue([]),
+        }),
       } as any);
 
       const result = await getAllProperties();
@@ -245,9 +249,11 @@ describe('propertyService - TX-45 Backend Services Tests', () => {
     });
 
     test('エラー時に例外を投げる', async () => {
-      MockedProperty.find = jest.fn().mockRejectedValue(
-        new Error('Database error')
-      );
+      MockedProperty.find = jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnValue({
+          lean: jest.fn().mockRejectedValue(new Error('Database error')),
+        }),
+      } as any);
 
       await expect(getAllProperties()).rejects.toThrow();
     });
