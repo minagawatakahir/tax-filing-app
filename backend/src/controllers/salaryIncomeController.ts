@@ -96,11 +96,12 @@ export const saveSalaryIncomeHandler = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error saving salary income record:', error);
     
-    // ユニーク制約エラー時の詳細メッセージ
+    // ユニーク制約エラー（upsert のため、同じ年度への保存が同時に行われて競合した場合のみ発生する）
+    // このリクエストでは保存されていないため、再試行を促す
     if (error.code === 11000) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        error: `この年度 (${error.keyValue?.year}) はすでに登録されています。上書きして保存します。`,
+        error: `${error.keyValue?.year ?? ''}年度のデータの保存が別の保存処理と競合したため、保存できませんでした。もう一度保存してください。`,
         code: 'DUPLICATE_YEAR',
       });
     }

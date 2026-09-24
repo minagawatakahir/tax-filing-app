@@ -64,3 +64,16 @@ export const SalaryIncomeRecord = mongoose.model<ISalaryIncomeRecord>(
   'SalaryIncomeRecord',
   SalaryIncomeRecordSchema
 );
+
+// 一意インデックス {userId, year} の作成に失敗した場合（既存データの重複など）に原因と対処を知らせる。
+// 失敗したままだと「年度ごとに1件」の保証が効かない（TX-61）。
+SalaryIncomeRecord.on('index', (error?: Error) => {
+  if (error) {
+    console.error(
+      '⚠️ salaryincomerecords の一意インデックス {userId, year} を作成できませんでした。' +
+        '既存データに同じ年度の重複がある可能性があります。' +
+        '`npm run db:dedupe-salary` で確認してください。',
+      error.message
+    );
+  }
+});

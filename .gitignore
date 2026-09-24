@@ -52,3 +52,6 @@ tmp_rovodev_*
 # Playwright artifacts
 e2e/test-results/
 e2e/playwright-report/
+
+# DB maintenance backups (may contain personal data)
+backend/backups/
