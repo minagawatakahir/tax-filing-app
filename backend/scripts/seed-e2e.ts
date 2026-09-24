@@ -13,6 +13,8 @@
 import mongoose from 'mongoose';
 import Property from '../src/models/Property';
 import { RSUIncomeRecord } from '../src/models/RSUIncomeRecord';
+import { saveSalaryIncomeRecord } from '../src/services/salaryIncomeStorageService';
+import { calculateSalaryIncome } from '../src/services/salaryIncomeService';
 
 export const E2E_PROPERTY_ID = 'e2e-property-001';
 
@@ -73,7 +75,14 @@ async function main() {
     totalRSUIncome: result.reduce((sum, r) => sum + r.taxableIncome, 0),
   });
 
-  console.log(`✅ E2E用DB "${dbName}" を初期化しました（物件1件、RSU 2025年度1件）`);
+  // 確定申告書（総合）のE2E用: 2024年度の給与所得（架空の数値。給与のE2Eが使う2025年度とは分ける）
+  const salaryInput = { annualSalary: 12000000, withheldTax: 1000000, socialInsurance: 1500000, lifeInsurance: 40000, dependents: 0, spouseDeduction: false };
+  await saveSalaryIncomeRecord(
+    { year: 2024, input: salaryInput, result: calculateSalaryIncome({ ...salaryInput, fiscalYear: 2024 }) as any },
+    { upsert: true }
+  );
+
+  console.log(`✅ E2E用DB "${dbName}" を初期化しました（物件1件、RSU 2025年度1件、給与所得 2024年度1件）`);
 }
 
 main()

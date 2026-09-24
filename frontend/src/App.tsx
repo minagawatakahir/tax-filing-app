@@ -10,6 +10,7 @@ import RSUIncomeListModule from './components/RSUIncomeListModule';
 import PropertyManagementPanel from './components/PropertyManagementPanel';
 import RealEstateIncomeModule from './components/RealEstateIncomeModule';
 import RealEstateIncomeListModule from './components/RealEstateIncomeListModule';
+import TaxReturnModule from './components/TaxReturnModule';
 import CapitalGainModule from './components/CapitalGainModule';
 import CapitalGainListModule from './components/CapitalGainListModule';
 import DepreciationModule from './components/DepreciationModule';
@@ -57,7 +58,7 @@ function AppContent() {
     if (module) {
       // moduleパラメータで遷移先を判定
       // 他モジュールから ?module= で遷移してくる先（例: 不動産所得の保存後は一覧へ）
-      const navigableModules: TabType[] = ['capital-gain', 'real-estate-income', 'real-estate-income-list'];
+      const navigableModules: TabType[] = ['capital-gain', 'real-estate-income', 'real-estate-income-list', 'tax-return'];
       if ((navigableModules as string[]).includes(module)) {
         setActiveTab(module as TabType);
       }
@@ -128,6 +129,7 @@ function AppContent() {
       description: '結果を確認・出力',
       color: 'purple',
       tabs: [
+        { id: 'tax-return', name: '確定申告書（総合）', icon: '🧾', help: '損益通算・控除・還付額をまとめて計算' },
         { id: 'rsu-income-list', name: 'RSU所得管理', icon: '📋', help: '複数年度の管理・保存' },
         { id: 'real-estate-income-list', name: '不動産所得一覧', icon: '📊', help: '年度全体のレポート' },
         { id: 'capital-gain-list', name: '売却所得一覧', icon: '📈', help: '売却結果の一覧・CSV出力' },
@@ -216,6 +218,7 @@ function AppContent() {
       {activeTab === 'capital-gain' && <CapitalGainModule propertyId={selectedPropertyId} />}
       {activeTab === 'capital-gain-list' && <CapitalGainListModule />}
       {activeTab === 'depreciation' && <DepreciationModule />}
+      {activeTab === 'tax-return' && <TaxReturnModule />}
 
       {/* Onboarding Modal - TX-18 Phase 1 */}
       <OnboardingModal 
