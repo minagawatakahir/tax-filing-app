@@ -111,10 +111,12 @@ E2E テストは **実データとは別の専用DB**（`tax-filing-app-e2e`）�
 
 ## 📚 ドキュメント
 
-- [API リファレンス](API_REFERENCE.md)
-- [使用方法ガイド](USAGE.md)
-- [クイックスタート](QUICKSTART.md)
-- [プロジェクトサマリー](PROJECT_SUMMARY.md)
+- [AGENTS.md](AGENTS.md) — 作業のルール（開発者・AIエージェント向け。**最初に読む**）
+- [学びの記録](docs/LESSONS_LEARNED.md) — 起きた問題と原因・対策
+- [テスト戦略](TEST_STRATEGY.md)
+- [データベース](DATABASE_REPORT.md)
+- [デザインシステム](DESIGN_SYSTEM.md)
+- [残タスク](REMAINING_TASKS.md) / [バックログ](TASK_BACKLOG.md)
 
 ## 🔗 関連リンク
 
