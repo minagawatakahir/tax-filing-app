@@ -31,6 +31,45 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/real-estate-income-list/:year
+ * 指定年度の不動産所得一覧と合計を取得
+ */
+router.get('/:year', async (req: Request, res: Response) => {
+  try {
+    if (!/^\d{4}$/.test(req.params.year as string)) {
+      return res.status(400).json({ success: false, error: '年度は4桁の数字で指定してください' });
+    }
+    const year = parseInt(req.params.year as string, 10);
+    const records = await getRealEstateIncomeByFiscalYear(year);
+    const summary = {
+      totalIncome: records.reduce((sum, r) => sum + r.totalIncome, 0),
+      totalExpenses: records.reduce((sum, r) => sum + r.totalExpenses, 0),
+      totalRealEstateIncome: records.reduce((sum, r) => sum + r.realEstateIncome, 0),
+      recordCount: records.length,
+    };
+    res.json({ success: true, records, summary });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/real-estate-income-list/:id
+ * 不動産所得データを削除
+ */
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const deleted = await deleteRealEstateIncome(req.params.id as string);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: '指定された不動産所得データが見つかりません' });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/real-estate-income-list/export-pdf/:year
  * 不動産所得一覧をPDF形式で出力
  */

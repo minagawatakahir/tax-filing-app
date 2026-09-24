@@ -9,42 +9,59 @@ import { RealEstateIncome, RealEstateIncomeRecord, IRealEstateIncome } from '../
  * 年度別に不動産所得一覧を取得
  * TX-36との連携: 売却済み物件を自動的に除外
  */
+interface SaleInfo {
+  saleStatus?: string;
+  saleDate?: Date | string | null;
+}
+
+/**
+ * 売却済み物件の不動産所得を、売却日以降の期間を除いて調整する（TX-36）
+ * - 売却した年度: 売却月までの月数に切り詰める
+ * - 売却した年より後の年度: 賃料は0か月分（その他の収入のみ）
+ * - 売却した年より前の年度・未売却: 変更しない
+ */
+export const adjustIncomeForSale = <
+  T extends { monthlyRent: number; months?: number; otherIncome?: number; totalIncome: number; totalExpenses: number; realEstateIncome: number }
+>(
+  record: T,
+  property: SaleInfo | null | undefined,
+  fiscalYear: number
+): T => {
+  if (!property || property.saleStatus !== 'sold' || !property.saleDate) return record;
+
+  const saleDate = new Date(property.saleDate);
+  const saleYear = saleDate.getFullYear();
+  if (saleYear > fiscalYear) return record;
+
+  const monthsLimit = saleYear === fiscalYear ? saleDate.getMonth() + 1 : 0;
+  const months = record.months ?? 12;
+  if (months <= monthsLimit) return record;
+
+  const totalIncome = record.monthlyRent * monthsLimit + (record.otherIncome || 0);
+  return {
+    ...record,
+    months: monthsLimit,
+    totalIncome,
+    realEstateIncome: totalIncome - (record.totalExpenses || 0),
+  };
+};
+
 export const getRealEstateIncomeByFiscalYear = async (fiscalYear: number): Promise<RealEstateIncomeRecord[]> => {
-  try {
-    const Property = require('../models/Property').default;
-    
-    // 指定年度の不動産所得データを取得
-    const records = await RealEstateIncome.find({ fiscalYear }).sort({ createdAt: -1 });
-    
-    // TX-36: 売却済み物件を除外するロジック
-    const filteredRecords = await Promise.all(
-      records.map(async (doc) => {
-        const property = await Property.findOne({ propertyId: doc.propertyId });
-        
-        // 売却済み物件の場合、売却日以降の期間は除外
-        if (property && property.saleStatus === 'sold' && property.saleDate) {
-          const saleDate = new Date(property.saleDate);
-          const saleMonth = saleDate.getMonth() + 1; // 1-12
-          
-          // 売却日以降の月は計上対象外
-          if (saleMonth < 12) {
-            // 売却月までのデータのみを計上
-            const adjustedMonths = Math.min(doc.months || 12, saleMonth);
-            return {
-              ...doc,
-              months: adjustedMonths,
-              monthlyRent: doc.monthlyRent,
-              totalIncome: (doc.monthlyRent * adjustedMonths) + (doc.otherIncome || 0),
-              realEstateIncome: ((doc.monthlyRent * adjustedMonths) + (doc.otherIncome || 0)) - (doc.totalExpenses || 0),
-            };
-          }
-        }
-        
-        return doc;
-      })
-    );
-    
-    return filteredRecords.map(doc => ({
+  const Property = require('../models/Property').default;
+
+  // 指定年度の不動産所得データを取得（lean: 通常のオブジェクトとして扱う）
+  const records = await RealEstateIncome.find({ fiscalYear }).sort({ createdAt: -1 }).lean();
+
+  // 物件の売却情報をまとめて取得
+  const propertyIds = [...new Set(records.map((r: any) => r.propertyId))];
+  const properties = propertyIds.length
+    ? await Property.find({ propertyId: { $in: propertyIds } }, { propertyId: 1, saleStatus: 1, saleDate: 1 }).lean()
+    : [];
+  const propertyById = new Map<string, SaleInfo>(properties.map((p: any) => [p.propertyId, p]));
+
+  return records.map((raw: any) => {
+    const doc = adjustIncomeForSale(raw, propertyById.get(raw.propertyId), fiscalYear);
+    return {
       _id: doc._id.toString(),
       fiscalYear: doc.fiscalYear,
       propertyId: doc.propertyId,
@@ -65,11 +82,8 @@ export const getRealEstateIncomeByFiscalYear = async (fiscalYear: number): Promi
       realEstateIncome: doc.realEstateIncome,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
-    }));
-  } catch (error) {
-    console.error('Error fetching real estate income records:', error);
-    return [];
-  }
+    };
+  });
 };
 
 /**

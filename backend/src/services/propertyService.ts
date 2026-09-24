@@ -34,6 +34,10 @@ export interface IPropertyData {
   loanGuaranteePaidAmount?: number;
   loanGuaranteePeriodYears?: number;
   loanGuaranteeStartDate?: string | Date;
+  // TX-36: 売却情報
+  saleStatus?: 'active' | 'sold' | 'archived';
+  saleDate?: string | Date | null;
+  salePrice?: number;
   // TX-32: リフォーム・改修費用
   renovationExpenses?: Array<{
     date: Date | string;
@@ -95,6 +99,10 @@ export const createProperty = async (propertyData: IPropertyData): Promise<IProp
       loanGuaranteePaidAmount: propertyData.loanGuaranteePaidAmount,
       loanGuaranteePeriodYears: propertyData.loanGuaranteePeriodYears,
       loanGuaranteeStartDate: propertyData.loanGuaranteeStartDate ? new Date(propertyData.loanGuaranteeStartDate) : undefined,
+      // TX-36: 売却情報
+      saleStatus: propertyData.saleStatus,
+      saleDate: propertyData.saleDate ? new Date(propertyData.saleDate) : undefined,
+      salePrice: propertyData.salePrice,
       // TX-32: リフォーム・改修費用
       renovationExpenses: propertyData.renovationExpenses?.map(exp => ({
         date: new Date(exp.date),
@@ -172,6 +180,10 @@ export const updateProperty = async (id: string, propertyData: Partial<IProperty
       loanGuaranteePaidAmount: propertyData.loanGuaranteePaidAmount,
       loanGuaranteePeriodYears: propertyData.loanGuaranteePeriodYears,
       loanGuaranteeStartDate: propertyData.loanGuaranteeStartDate ? new Date(propertyData.loanGuaranteeStartDate) : undefined,
+      // TX-36: 売却情報
+      saleStatus: propertyData.saleStatus,
+      saleDate: propertyData.saleDate ? new Date(propertyData.saleDate) : undefined,
+      salePrice: propertyData.salePrice,
       // TX-32: リフォーム・改修費用
       renovationExpenses: propertyData.renovationExpenses?.map(exp => ({
         date: new Date(exp.date),
@@ -186,7 +198,7 @@ export const updateProperty = async (id: string, propertyData: Partial<IProperty
     // undefinedの値を削除
     Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
-    return await Property.findByIdAndUpdate(id, updateData, { new: true }).lean();
+    return await Property.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).lean();
   } catch (error: any) {
     throw new Error(`物件の更新に失敗しました: ${error.message}`);
   }
