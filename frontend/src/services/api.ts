@@ -24,12 +24,18 @@ export interface ExpenseData {
 }
 
 export interface TaxCalculationResult {
+  taxYear?: number; // 計算に使った年分
+  isProvisional?: boolean; // 暫定ルールで計算したか
+  notice?: string; // 注意事項
   totalIncome: number;
   totalExpense: number;
   netIncome: number;
   basicDeduction: number;
   taxableIncome: number;
-  incomeTax: number;
+  baseIncomeTax?: number; // 基準所得税額
+  reconstructionTax?: number; // 復興特別所得税額
+  incomeTax: number; // 所得税及び復興特別所得税の額
+  residentBasicDeduction?: number; // 住民税の基礎控除
   inhabTax: number;
   totalTax: number;
 }
@@ -47,17 +53,21 @@ export interface CalculationResponse {
  */
 export const calculateTax = async (
   income: IncomeData,
-  expense: ExpenseData
+  expense: ExpenseData,
+  fiscalYear?: number
 ): Promise<CalculationResponse> => {
-  const response = await apiClient.post('/tax/calculate', { income, expense });
+  const response = await apiClient.post('/tax/calculate', { income, expense, fiscalYear });
   return response.data;
 };
 
 /**
  * 簡易シミュレーションAPIを呼び出し
  */
-export const quickSimulation = async (annualIncome: number): Promise<CalculationResponse> => {
-  const response = await apiClient.post('/tax/quick-simulation', { annualIncome });
+export const quickSimulation = async (
+  annualIncome: number,
+  fiscalYear?: number
+): Promise<CalculationResponse> => {
+  const response = await apiClient.post('/tax/quick-simulation', { annualIncome, fiscalYear });
   return response.data;
 };
 
@@ -88,15 +98,15 @@ export const deleteSalaryIncomeRecord = async (id: string) => {
 /**
  * 譲渡所得計算結果を保存
  */
-export const saveCapitalGainRecord = async (propertyId: string | undefined, input: any, result: any) => {
-  const response = await apiClient.post('/capital-gain/save', { propertyId, input, result });
+export const saveCapitalGainRecord = async (propertyId: string | undefined, input: any, result: any, fiscalYear?: number) => {
+  const response = await apiClient.post('/capital-gain/save', { propertyId, input, result, fiscalYear });
   return response.data;
 };
 
 /**
  * 譲渡所得計算履歴を取得
  */
-export const getCapitalGainRecords = async (filters?: { propertyId?: string }) => {
+export const getCapitalGainRecords = async (filters?: { propertyId?: string; fiscalYear?: number }) => {
   const response = await apiClient.get('/capital-gain/records', { params: filters });
   return response.data;
 };

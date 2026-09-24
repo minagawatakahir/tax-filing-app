@@ -1,7 +1,16 @@
 /**
  * 税務計算サービス
- * 個人事業主向けの所得税、控除額などを計算
+ * 個人事業主向けの所得税、控除額などを計算（法定の数値は taxRules に集約）
  */
+import {
+  calculateIncomeTaxBreakdown,
+  calculateResidentTax,
+  getBasicDeduction,
+  getResidentBasicDeduction,
+  isProvisionalTaxYear,
+  provisionalNotice,
+  resolveTaxYear,
+} from './taxRules';
 
 export interface IncomeData {
   businessIncome: number; // 事業所得
@@ -18,99 +27,75 @@ export interface ExpenseData {
 }
 
 export interface TaxCalculationResult {
-  totalIncome: number; // 総所得
+  taxYear: number; // 計算に使った年分
+  isProvisional: boolean; // 暫定ルールで計算したか
+  notice?: string; // 注意事項
+  totalIncome: number; // 総収入
   totalExpense: number; // 総経費
   netIncome: number; // 所得（経費を差し引いた）
-  basicDeduction: number; // 基礎控除
-  taxableIncome: number; // 課税対象所得
-  incomeTax: number; // 所得税
-  inhabTax: number; // 住民税（概算）
+  basicDeduction: number; // 基礎控除（所得税）
+  taxableIncome: number; // 課税総所得金額（1,000円未満切捨て）
+  baseIncomeTax: number; // 基準所得税額
+  reconstructionTax: number; // 復興特別所得税額
+  incomeTax: number; // 所得税及び復興特別所得税の額
+  residentBasicDeduction: number; // 基礎控除（住民税）
+  inhabTax: number; // 住民税（概算。調整控除等は考慮しない）
   totalTax: number; // 合計税額
 }
 
 /**
- * 2024年の税率テーブル（日本の所得税）
- * 参考: 国税庁の所得税税率
- */
-const TAX_BRACKETS = [
-  { max: 1950000, rate: 0.05, deduction: 0 },
-  { max: 3300000, rate: 0.1, deduction: 97500 },
-  { max: 6950000, rate: 0.2, deduction: 427500 },
-  { max: 9000000, rate: 0.23, deduction: 636000 },
-  { max: 18000000, rate: 0.33, deduction: 1536000 },
-  { max: 40000000, rate: 0.35, deduction: 2796000 },
-  { max: Infinity, rate: 0.45, deduction: 4796000 },
-];
-
-// 基礎控除（2024年）
-const BASIC_DEDUCTION = 480000;
-
-// 社会保険料控除の概算（最大）
-const MAX_SOCIAL_INSURANCE_DEDUCTION = 1220000;
-
-/**
- * 所得税を計算
- */
-function calculateIncomeTax(taxableIncome: number): number {
-  if (taxableIncome <= 0) return 0;
-
-  const bracket = TAX_BRACKETS.find((b) => taxableIncome <= b.max);
-  if (!bracket) return 0;
-
-  const tax = taxableIncome * bracket.rate - bracket.deduction;
-  return Math.max(0, Math.round(tax));
-}
-
-/**
- * 住民税を概算計算（全国一律）
- * 基本: 所得税課税対象額 × 10% + 5000円
- */
-function calculateInhabitationTax(taxableIncome: number): number {
-  if (taxableIncome <= 0) return 0;
-  return Math.round(taxableIncome * 0.1) + 5000;
-}
-
-/**
  * 総合的な税務計算
+ * @param fiscalYear 年分（未指定時は前年分）
  */
-export function calculateTax(income: IncomeData, expense: ExpenseData): TaxCalculationResult {
-  // 総所得を計算
+export function calculateTax(
+  income: IncomeData,
+  expense: ExpenseData,
+  fiscalYear?: number
+): TaxCalculationResult {
+  const year = resolveTaxYear(fiscalYear);
+
+  // 総収入を計算
   const totalIncome = income.businessIncome + (income.otherIncome || 0);
 
   // 総経費を計算
-  const totalExpense =
-    expense.rentExpense +
-    expense.utilityExpense +
-    expense.suppliesExpense +
-    expense.travelExpense +
-    expense.communicationExpense +
-    (expense.otherExpense || 0);
+  const totalExpense = sumExpenses(expense);
 
-  // 事業所得（所得金額）
+  // 所得金額（= 合計所得金額）
   const netIncome = Math.max(0, totalIncome - totalExpense);
 
-  // 基礎控除を適用
-  const taxableIncome = Math.max(0, netIncome - BASIC_DEDUCTION);
+  // 所得税及び復興特別所得税
+  const basicDeduction = getBasicDeduction(netIncome, year);
+  const tax = calculateIncomeTaxBreakdown(netIncome - basicDeduction, year);
 
-  // 所得税を計算
-  const incomeTax = calculateIncomeTax(taxableIncome);
-
-  // 住民税を計算
-  const inhabTax = calculateInhabitationTax(Math.max(0, netIncome - 430000)); // 住民税基礎控除 43万円
-
-  const totalTax = incomeTax + inhabTax;
+  // 住民税（概算）
+  const residentBasicDeduction = getResidentBasicDeduction(netIncome);
+  const inhabTax = calculateResidentTax(netIncome - residentBasicDeduction);
 
   return {
+    taxYear: year,
+    isProvisional: isProvisionalTaxYear(year),
+    notice: provisionalNotice(year),
     totalIncome,
     totalExpense,
     netIncome,
-    basicDeduction: BASIC_DEDUCTION,
-    taxableIncome,
-    incomeTax,
+    basicDeduction,
+    taxableIncome: tax.taxableIncome,
+    baseIncomeTax: tax.baseIncomeTax,
+    reconstructionTax: tax.reconstructionTax,
+    incomeTax: tax.totalIncomeTax,
+    residentBasicDeduction,
     inhabTax,
-    totalTax,
+    totalTax: tax.totalIncomeTax + inhabTax,
   };
 }
+
+const sumExpenses = (expense: ExpenseData): number =>
+  expense.rentExpense +
+  expense.utilityExpense +
+  expense.suppliesExpense +
+  expense.travelExpense +
+  expense.communicationExpense +
+  (expense.otherExpense || 0);
 
 /**
  * 節税提案を生成
@@ -120,13 +105,7 @@ export function generateTaxSavingsSuggestions(
   expense: ExpenseData
 ): string[] {
   const suggestions: string[] = [];
-  const totalExpense =
-    expense.rentExpense +
-    expense.utilityExpense +
-    expense.suppliesExpense +
-    expense.travelExpense +
-    expense.communicationExpense +
-    (expense.otherExpense || 0);
+  const totalExpense = sumExpenses(expense);
 
   const expenseRatio = totalExpense / (income.businessIncome + (income.otherIncome || 0));
 

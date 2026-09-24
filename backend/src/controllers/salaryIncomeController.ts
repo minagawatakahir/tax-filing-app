@@ -18,6 +18,7 @@ export const calculateSalaryIncomeHandler = async (req: Request, res: Response) 
       lifeInsurance,
       dependents,
       spouseDeduction,
+      fiscalYear,
     } = req.body;
 
     // バリデーション
@@ -35,9 +36,16 @@ export const calculateSalaryIncomeHandler = async (req: Request, res: Response) 
       lifeInsurance: parseFloat(lifeInsurance),
       dependents: parseInt(dependents) || 0,
       spouseDeduction: spouseDeduction || false,
+      fiscalYear: fiscalYear !== undefined && fiscalYear !== null ? parseInt(fiscalYear, 10) : undefined,
     };
 
-    const result = calculateSalaryIncome(input);
+    let result;
+    try {
+      result = calculateSalaryIncome(input);
+    } catch (e: any) {
+      // 対応していない年分など入力起因のエラー
+      return res.status(400).json({ success: false, error: e.message });
+    }
 
     res.json({
       success: true,

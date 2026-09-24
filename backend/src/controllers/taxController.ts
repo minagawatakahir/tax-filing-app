@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import { calculateTax, generateTaxSavingsSuggestions, IncomeData, ExpenseData } from '../services/taxCalculator';
 
+const parseFiscalYear = (value: unknown): number | undefined =>
+  value === undefined || value === null || value === '' ? undefined : parseInt(String(value), 10);
+
 /**
  * 税務計算を実行
  */
 export const calculateTaxHandler = (req: Request, res: Response) => {
   try {
-    const { income, expense } = req.body;
+    const { income, expense, fiscalYear } = req.body;
 
     // バリデーション
     if (!income || !expense) {
@@ -14,7 +17,12 @@ export const calculateTaxHandler = (req: Request, res: Response) => {
     }
 
     // 税務計算を実行
-    const result = calculateTax(income as IncomeData, expense as ExpenseData);
+    let result;
+    try {
+      result = calculateTax(income as IncomeData, expense as ExpenseData, parseFiscalYear(fiscalYear));
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
+    }
 
     // 節税提案を生成
     const suggestions = generateTaxSavingsSuggestions(income as IncomeData, expense as ExpenseData);
@@ -37,7 +45,7 @@ export const calculateTaxHandler = (req: Request, res: Response) => {
  */
 export const quickSimulationHandler = (req: Request, res: Response) => {
   try {
-    const { annualIncome } = req.body;
+    const { annualIncome, fiscalYear } = req.body;
 
     if (!annualIncome || annualIncome <= 0) {
       return res.status(400).json({ error: '年間収入を入力してください' });
@@ -60,7 +68,12 @@ export const quickSimulationHandler = (req: Request, res: Response) => {
       otherExpense: estimatedExpense * 0.1,
     };
 
-    const result = calculateTax(income, expense);
+    let result;
+    try {
+      result = calculateTax(income, expense, parseFiscalYear(fiscalYear));
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
+    }
 
     res.json({
       success: true,

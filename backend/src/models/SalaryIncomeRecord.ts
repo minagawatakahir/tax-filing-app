@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { SalaryIncomeResult } from '../services/salaryIncomeService';
+import { StoredSalaryIncomeResult } from '../services/salaryIncomeService';
 
 export interface ISalaryIncomeRecord extends Document {
   userId: string;
@@ -12,7 +12,7 @@ export interface ISalaryIncomeRecord extends Document {
     dependents?: number;
     spouseDeduction?: boolean;
   };
-  result: SalaryIncomeResult;
+  result: StoredSalaryIncomeResult;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +41,15 @@ const SalaryIncomeRecordSchema = new Schema<ISalaryIncomeRecord>(
       totalDeduction: { type: Number, required: true },
       taxableIncome: { type: Number, required: true },
       estimatedTax: { type: Number, required: true },
+      // v2（年分別税制ルール対応）以降の計算結果に含まれる項目
+      taxYear: { type: Number },
+      isProvisional: { type: Boolean },
+      notice: { type: String },
+      baseIncomeTax: { type: Number },
+      reconstructionTax: { type: Number },
+      withheldTax: { type: Number },
+      taxPayable: { type: Number },
+      taxRefund: { type: Number },
     },
   },
   {

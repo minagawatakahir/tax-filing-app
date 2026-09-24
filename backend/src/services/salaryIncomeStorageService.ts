@@ -1,5 +1,5 @@
 import { SalaryIncomeRecord, ISalaryIncomeRecord } from '../models/SalaryIncomeRecord';
-import { SalaryIncomeResult } from './salaryIncomeService';
+import { StoredSalaryIncomeResult } from './salaryIncomeService';
 
 export interface SaveSalaryIncomeRecordParams {
   userId?: string;
@@ -12,7 +12,7 @@ export interface SaveSalaryIncomeRecordParams {
     dependents?: number;
     spouseDeduction?: boolean;
   };
-  result: SalaryIncomeResult;
+  result: StoredSalaryIncomeResult;
 }
 
 export const saveSalaryIncomeRecord = async (

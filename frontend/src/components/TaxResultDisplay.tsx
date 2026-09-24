@@ -20,7 +20,14 @@ const TaxResultDisplay: React.FC<TaxResultDisplayProps> = ({ result, suggestions
     <div className="max-w-4xl mx-auto mt-8">
       {/* 計算結果 */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">📋 計算結果</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          📋 計算結果{result.taxYear ? `（${result.taxYear}年分）` : ''}
+        </h2>
+        {result.notice && (
+          <p className="mb-4 p-3 rounded bg-yellow-50 border border-yellow-300 text-sm text-yellow-800" role="alert">
+            ⚠️ {result.notice}
+          </p>
+        )}
         
         <div className="space-y-2">
           <div className={resultItemStyle}>
@@ -47,9 +54,14 @@ const TaxResultDisplay: React.FC<TaxResultDisplayProps> = ({ result, suggestions
 
         <div className="mt-6 pt-6 border-t-2 border-gray-300">
           <div className={highlightStyle}>
-            <span className="text-lg font-bold text-blue-800">所得税</span>
+            <span className="text-lg font-bold text-blue-800">所得税及び復興特別所得税</span>
             <span className="text-lg font-bold text-blue-900">{formatCurrency(result.incomeTax)}</span>
           </div>
+          {result.baseIncomeTax !== undefined && result.reconstructionTax !== undefined && (
+            <div className="flex justify-between px-4 py-1 text-sm text-gray-600">
+              <span>内訳: 所得税 {formatCurrency(result.baseIncomeTax)} / 復興特別所得税 {formatCurrency(result.reconstructionTax)}</span>
+            </div>
+          )}
           <div className={highlightStyle}>
             <span className="text-lg font-bold text-blue-800">住民税（概算）</span>
             <span className="text-lg font-bold text-blue-900">{formatCurrency(result.inhabTax)}</span>
@@ -88,7 +100,7 @@ const TaxResultDisplay: React.FC<TaxResultDisplayProps> = ({ result, suggestions
           </p>
         </div>
         <p className="text-sm text-gray-500 mt-4 text-center">
-          ※ 社会保険料や復興特別所得税は含まれていません
+          ※ 社会保険料は含まれていません。住民税は調整控除等を考慮しない概算です
         </p>
       </div>
     </div>

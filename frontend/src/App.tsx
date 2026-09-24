@@ -82,7 +82,7 @@ function AppContent() {
     setError(null);
 
     try {
-      const response: CalculationResponse = await calculateTax(income, expense);
+      const response: CalculationResponse = await calculateTax(income, expense, currentFiscalYear.year);
       setResult(response.data.calculation);
       setSuggestions(response.data.suggestions);
       

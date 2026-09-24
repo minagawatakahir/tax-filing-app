@@ -24,7 +24,16 @@ interface SalaryIncomeResult {
   spouseDeduction: number;
   totalDeduction: number;
   taxableIncome: number;
-  estimatedTax: number;
+  estimatedTax: number; // 所得税及び復興特別所得税の額
+  // 以下は年分別税制ルール対応（v2）以降の計算結果に含まれる
+  taxYear?: number;
+  isProvisional?: boolean;
+  notice?: string;
+  baseIncomeTax?: number;
+  reconstructionTax?: number;
+  withheldTax?: number;
+  taxPayable?: number;
+  taxRefund?: number;
 }
 
 interface SavedRecord {
@@ -74,7 +83,10 @@ export default function SalaryIncomeModule() {
     setError(null);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/salary-income/calculate', formData);
+      const response = await axios.post('http://localhost:5000/api/salary-income/calculate', {
+        ...formData,
+        fiscalYear: currentFiscalYear.year,
+      });
       setResult(response.data.data);
     } catch (err: any) {
       setError(err.response?.data?.error || 'エラーが発生しました');
@@ -303,11 +315,45 @@ export default function SalaryIncomeModule() {
             <p className="font-bold text-2xl text-blue-700 mb-2">
               ¥{result.taxableIncome.toLocaleString('ja-JP')}
             </p>
-            <p className="text-xs text-gray-600">推定所得税</p>
+            <p className="text-xs text-gray-600">所得税及び復興特別所得税</p>
             <p className="font-bold text-xl text-red-600">
               ¥{result.estimatedTax.toLocaleString('ja-JP')}
             </p>
+            {result.baseIncomeTax !== undefined && result.reconstructionTax !== undefined && (
+              <p className="text-xs text-gray-500">
+                （所得税 ¥{result.baseIncomeTax.toLocaleString('ja-JP')} + 復興特別所得税 ¥
+                {result.reconstructionTax.toLocaleString('ja-JP')}）
+              </p>
+            )}
           </div>
+
+          {result.taxRefund !== undefined && result.taxPayable !== undefined && (
+            <div
+              data-testid="salary-tax-settlement"
+              className={`mt-4 p-3 rounded border ${
+                result.taxRefund > 0 ? 'bg-green-50 border-green-300' : 'bg-orange-50 border-orange-300'
+              }`}
+            >
+              <p className="text-xs text-gray-600">
+                源泉徴収税額 ¥{(result.withheldTax ?? 0).toLocaleString('ja-JP')} との差引
+              </p>
+              {result.taxRefund > 0 ? (
+                <p className="font-bold text-2xl text-green-700">
+                  還付見込み ¥{result.taxRefund.toLocaleString('ja-JP')}
+                </p>
+              ) : (
+                <p className="font-bold text-2xl text-orange-700">
+                  納付見込み ¥{result.taxPayable.toLocaleString('ja-JP')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {result.notice && (
+            <div className="mt-4">
+              <Alert variant="warning" message={result.notice} />
+            </div>
+          )}
 
           {/* 詳細内訳 */}
           <div className="mt-4 p-3 bg-white border border-blue-200 rounded">

@@ -93,6 +93,108 @@ describe('SalaryIncomeModule', () => {
     });
   });
 
+  describe('年分別の税額表示（還付・納付）', () => {
+    const v2Result = (overrides: Record<string, unknown> = {}) => ({
+      data: {
+        data: {
+          taxYear: 2025,
+          isProvisional: false,
+          annualSalary: 5000000,
+          salaryIncomeDeduction: 1440000,
+          salaryIncome: 3560000,
+          socialInsurance: 600000,
+          lifeInsurance: 80000,
+          basicDeduction: 680000,
+          dependentDeduction: 380000,
+          spouseDeduction: 380000,
+          totalDeduction: 2120000,
+          taxableIncome: 1440000,
+          baseIncomeTax: 72000,
+          reconstructionTax: 1512,
+          estimatedTax: 73512,
+          withheldTax: 500000,
+          taxPayable: 0,
+          taxRefund: 426488,
+          ...overrides,
+        },
+      },
+    });
+
+    beforeEach(() => {
+      localStorage.setItem('selectedFiscalYear', '2025');
+    });
+
+    afterEach(() => {
+      localStorage.removeItem('selectedFiscalYear');
+      jest.clearAllMocks();
+    });
+
+    it('選択中の年分を計算APIに送る', async () => {
+      mockedAxios.post.mockResolvedValue(v2Result());
+      render(<SalaryIncomeModule />, { wrapper: Wrapper });
+
+      fireEvent.click(screen.getByText('計算する'));
+
+      await waitFor(() => expect(mockedAxios.post).toHaveBeenCalled());
+      expect(mockedAxios.post.mock.calls[0][0]).toContain('/api/salary-income/calculate');
+      expect(mockedAxios.post.mock.calls[0][1]).toMatchObject({ fiscalYear: 2025 });
+    });
+
+    it('復興特別所得税の内訳と還付見込み額を表示する', async () => {
+      mockedAxios.post.mockResolvedValue(v2Result());
+      render(<SalaryIncomeModule />, { wrapper: Wrapper });
+
+      fireEvent.click(screen.getByText('計算する'));
+
+      const settlement = await screen.findByTestId('salary-tax-settlement');
+      expect(settlement).toHaveTextContent('還付見込み ¥426,488');
+      expect(settlement).toHaveTextContent('源泉徴収税額 ¥500,000');
+      expect(screen.getByText('所得税及び復興特別所得税')).toBeInTheDocument();
+      expect(screen.getByText(/復興特別所得税 ¥\s*1,512/)).toBeInTheDocument();
+    });
+
+    it('源泉徴収税額が不足する場合は納付見込み額を表示する', async () => {
+      mockedAxios.post.mockResolvedValue(v2Result({ withheldTax: 50000, taxPayable: 23500, taxRefund: 0 }));
+      render(<SalaryIncomeModule />, { wrapper: Wrapper });
+
+      fireEvent.click(screen.getByText('計算する'));
+
+      const settlement = await screen.findByTestId('salary-tax-settlement');
+      expect(settlement).toHaveTextContent('納付見込み ¥23,500');
+      expect(settlement).not.toHaveTextContent('還付見込み');
+    });
+
+    it('暫定ルールで計算した場合は注意書きを表示する', async () => {
+      mockedAxios.post.mockResolvedValue(
+        v2Result({ taxYear: 2028, isProvisional: true, notice: '2028年分は給与所得控除などの税制が未確定のため、公表済みの最新ルールで暫定計算しています。' })
+      );
+      render(<SalaryIncomeModule />, { wrapper: Wrapper });
+
+      fireEvent.click(screen.getByText('計算する'));
+
+      expect(await screen.findByText(/2028年分は給与所得控除などの税制が未確定/)).toBeInTheDocument();
+    });
+
+    it('旧形式（v1）の結果では差引表示を出さない', async () => {
+      mockedAxios.post.mockResolvedValue({
+        data: {
+          data: {
+            annualSalary: 5000000, salaryIncomeDeduction: 1440000, salaryIncome: 3560000,
+            socialInsurance: 750000, lifeInsurance: 100000, basicDeduction: 480000,
+            dependentDeduction: 0, spouseDeduction: 0, totalDeduction: 1330000,
+            taxableIncome: 2230000, estimatedTax: 111500,
+          },
+        },
+      });
+      render(<SalaryIncomeModule />, { wrapper: Wrapper });
+
+      fireEvent.click(screen.getByText('計算する'));
+
+      expect(await screen.findByText('¥111,500')).toBeInTheDocument();
+      expect(screen.queryByTestId('salary-tax-settlement')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Error Handling', () => {
     it('should handle component without errors', () => {
       render(<SalaryIncomeModule />, { wrapper: Wrapper });
