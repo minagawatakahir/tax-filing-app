@@ -324,6 +324,10 @@ const RealEstateIncomeModule: React.FC<RealEstateIncomeModuleProps> = ({ propert
       alert('先に計算を実行してください');
       return;
     }
+    if (!income.propertyId.trim()) {
+      alert('物件IDを入力してください（物件管理から物件を選択するか、物件IDを入力してください）');
+      return;
+    }
 
     try {
       const saveData = {

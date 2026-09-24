@@ -65,7 +65,8 @@ export default function RSUExchangeModule() {
       try {
         setLoading(true);
         setResult(null); // 前年度のデータをクリア
-        setGrants([]); // フォームもクリア
+        // フォームを空の1行にリセット（データが無い年度でもすぐ入力できるように）
+        setGrants([{ vestingDate: '', shares: '', pricePerShare: '', currency: 'USD' }]);
         
         const response = await axios.get(
           `http://localhost:5000/api/rsu-income/list?year=${currentFiscalYear.year}`
