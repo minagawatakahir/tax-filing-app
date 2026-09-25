@@ -55,3 +55,6 @@ e2e/playwright-report/
 
 # DB maintenance backups (may contain personal data)
 backend/backups/
+
+# TTM（為替レート）のキャッシュ（マシンごとに作り直す。コミットしない）
+backend/cache/
