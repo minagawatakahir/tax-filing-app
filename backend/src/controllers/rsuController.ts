@@ -1,3 +1,4 @@
+import { TTMUnavailableError } from '../services/rsuExchangeService';
 import { Request, Response } from 'express';
 import {
   calculateRSUTax,
@@ -25,7 +26,7 @@ export const calculateRSUTaxHandler = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error: any) {
-    res.status(500).json({
+    res.status(error instanceof TTMUnavailableError ? 422 : 500).json({
       success: false,
       error: error.message,
     });
@@ -102,7 +103,7 @@ export const calculateBatchRSUHandler = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({
+    res.status(error instanceof TTMUnavailableError ? 422 : 500).json({
       success: false,
       error: error.message,
     });
@@ -130,7 +131,7 @@ export const aggregateAnnualRSUHandler = async (req: Request, res: Response) => 
       data: result,
     });
   } catch (error: any) {
-    res.status(500).json({
+    res.status(error instanceof TTMUnavailableError ? 422 : 500).json({
       success: false,
       error: error.message,
     });

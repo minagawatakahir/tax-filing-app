@@ -3,6 +3,9 @@ import axios from 'axios';
 import { useFiscalYear } from '../contexts/FiscalYearContext';
 import { saveRSUIncomeRecord } from '../services/api';
 import { Button, Card } from './ui';
+import { RateProvenanceWarning, RateSourceBadge } from './RateProvenance';
+
+
 
 interface RSUGrant {
   vestingDate: string;
@@ -19,6 +22,9 @@ interface RSUCalculationResult {
   pricePerShareJPY: number;
   totalValueJPY: number;
   taxableIncomeJPY: number;
+  ttmSource?: string; // 為替レートの出どころ
+  ttmRateDate?: string; // 実際に使った公示日（休日なら直前の公示日）
+  isSimulated?: boolean; // シミュレーションのレートか
 }
 
 interface BatchResult {
@@ -103,6 +109,9 @@ export default function RSUExchangeModule() {
                 pricePerShareJPY: item.pricePerShareUSD * item.ttmRate,
                 totalValueJPY: item.totalValueJPY,
                 taxableIncomeJPY: item.taxableIncome,
+                ttmSource: item.ttmSource,
+                ttmRateDate: item.ttmRateDate,
+                isSimulated: item.isSimulated,
               }));
               
               setResult({
@@ -241,6 +250,9 @@ export default function RSUExchangeModule() {
           ttmRate: calc.exchangeRate,
           totalValueJPY: calc.totalValueJPY,
           taxableIncome: calc.taxableIncomeJPY,
+          ttmSource: calc.ttmSource,
+          ttmRateDate: calc.ttmRateDate,
+          isSimulated: calc.isSimulated,
         }));
 
         await saveRSUIncomeRecord(
@@ -268,6 +280,9 @@ export default function RSUExchangeModule() {
           ttmRate: result.exchangeRate,
           totalValueJPY: result.totalValueJPY,
           taxableIncome: result.taxableIncomeJPY,
+          ttmSource: result.ttmSource,
+          ttmRateDate: result.ttmRateDate,
+          isSimulated: result.isSimulated,
         }];
 
         await saveRSUIncomeRecord(
@@ -505,6 +520,7 @@ export default function RSUExchangeModule() {
           }
         >
           <div className="space-y-4">
+            <RateProvenanceWarning calculations={[result]} />
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-600">権利確定日</p>
@@ -521,6 +537,7 @@ export default function RSUExchangeModule() {
               <div>
                 <p className="text-gray-600">適用為替レート</p>
                 <p className="font-bold text-lg">¥{result.exchangeRate.toFixed(2)}</p>
+                <RateSourceBadge calc={result} />
               </div>
               <div>
                 <p className="text-gray-600">JPY価格</p>
@@ -537,6 +554,7 @@ export default function RSUExchangeModule() {
 
       {result && isBatchResult(result) && (
         <div className="mt-6 space-y-4">
+          <RateProvenanceWarning calculations={result.calculations} />
           <div className="overflow-x-auto border rounded-lg">
             <table className="w-full text-sm">
               <thead className="bg-green-100">
@@ -545,6 +563,7 @@ export default function RSUExchangeModule() {
                   <th className="px-3 py-2 text-right">株数</th>
                   <th className="px-3 py-2 text-right">USD価格</th>
                   <th className="px-3 py-2 text-right">TTM</th>
+                  <th className="px-3 py-2 text-left">レートの公示日</th>
                   <th className="px-3 py-2 text-right">JPY価格</th>
                   <th className="px-3 py-2 text-right">総額 (JPY)</th>
                 </tr>
@@ -556,6 +575,7 @@ export default function RSUExchangeModule() {
                     <td className="px-3 py-2 text-right">{calc.shares.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right">${calc.pricePerShareUSD.toFixed(2)}</td>
                     <td className="px-3 py-2 text-right font-semibold text-blue-600">¥{calc.exchangeRate.toFixed(2)}</td>
+                    <td className="px-3 py-2"><RateSourceBadge calc={calc} /></td>
                     <td className="px-3 py-2 text-right">¥{calc.pricePerShareJPY.toLocaleString('ja-JP', { maximumFractionDigits: 0 })}</td>
                     <td className="px-3 py-2 text-right font-bold">¥{calc.totalValueJPY.toLocaleString('ja-JP', { maximumFractionDigits: 0 })}</td>
                   </tr>

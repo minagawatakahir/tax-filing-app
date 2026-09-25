@@ -1,3 +1,5 @@
+import { isSimulationEnabled, SIMULATED_TTM_SOURCE } from '../services/ttmRateService';
+import { summarizeRateProvenance } from '../services/rsuRateProvenance';
 import { Request, Response } from 'express';
 import {
   saveRSUIncomeRecord,
@@ -19,7 +21,11 @@ import { generateRSUIncomeListPDF } from '../services/pdfGenerationService';
  */
 export const saveRSUIncome = async (req: Request, res: Response) => {
   try {
-    const { year, input, result, totalRSUIncome } = req.body;
+    const { year, input, totalRSUIncome } = req.body;
+    // サーバーがシミュレーションで動いているときは、送られてきた値に関係なくシミュレーションとして保存する
+    const result = Array.isArray(req.body.result) && isSimulationEnabled()
+      ? req.body.result.map((row: any) => ({ ...row, isSimulated: true, ttmSource: SIMULATED_TTM_SOURCE }))
+      : req.body.result;
     const userId = req.query.userId as string || 'demo-user';
 
     // バリデーション
@@ -267,6 +273,19 @@ export const exportRSUIncomePDF = async (req: Request, res: Response) => {
     // 複数レコードがある場合は統合
     const allResults = records.flatMap(record => record.result);
     const totalRSUIncome = records.reduce((sum, record) => sum + record.totalRSUIncome, 0);
+
+    // 為替レートの出どころが確認できない行（シミュレーション・古い記録）があれば、申告用のPDFは出さない
+    const provenance = summarizeRateProvenance(allResults);
+    if (!provenance.usableForFiling) {
+      return res.status(409).json({
+        success: false,
+        error:
+          `為替レートの出どころが確認できない権利確定があるため、申告用のPDFを出力できません` +
+          `（シミュレーション ${provenance.simulated}件、出どころ不明 ${provenance.unknown}件）。` +
+          `RSUの画面で計算し直して保存してから出力してください。`,
+        provenance,
+      });
+    }
 
     // PDF生成
     const pdfStream = generateRSUIncomeListPDF({

@@ -1,3 +1,4 @@
+import { TTMUnavailableError } from '../services/rsuExchangeService';
 import { Router, Request, Response } from 'express';
 import { calculateRSUTaxHandler, aggregateAnnualRSUHandler, calculateBatchRSUHandler } from '../controllers/rsuController';
 import { getTTMRate } from '../services/rsuExchangeService';
@@ -52,7 +53,7 @@ router.get('/ttm-rate', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to fetch TTM rate' });
+    res.status(error instanceof TTMUnavailableError ? 422 : 500).json({ error: error.message || 'Failed to fetch TTM rate' });
   }
 });
 
@@ -103,7 +104,7 @@ router.post('/ttm-rates', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to fetch TTM rates' });
+    res.status(error instanceof TTMUnavailableError ? 422 : 500).json({ error: error.message || 'Failed to fetch TTM rates' });
   }
 });
 
