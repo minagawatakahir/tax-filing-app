@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { E2E_PROPERTY_ID } from '../e2e-env';
 
 /**
  * 不動産所得の保存フロー完全テスト
@@ -19,7 +20,7 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
   const calculateAndSave = async (page: Page, monthlyRent: number, managementFee: number) => {
     await page.getByRole('button', { name: /^🏠\s*不動産所得$/ }).click();
 
-    await page.locator('label:has-text("物件ID") + input').fill('property-002');
+    await page.locator('label:has-text("物件ID") + input').fill(E2E_PROPERTY_ID);
     await page.locator('label:has-text("月額家賃") + input').fill(String(monthlyRent));
     await page.locator('label:has-text("管理費") + input').fill(String(managementFee));
 
@@ -62,7 +63,7 @@ test.describe('不動産所得の保存フロー - E2E Test', () => {
     expect(response.status()).toBe(201);
     // 入力値がそのまま保存リクエストに含まれる
     expect(payload).toMatchObject({
-      propertyId: 'property-002',
+      propertyId: E2E_PROPERTY_ID,
       monthlyRent: 125000,
       months: 12,
       managementFee: 60000,
