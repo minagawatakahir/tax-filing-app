@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Input } from './Input';
+import { Select } from './Select';
 
 describe('Input Component', () => {
   test('renders input element', () => {
@@ -57,5 +58,33 @@ describe('Input Component', () => {
     const { container } = render(<Input label="Required Field" required />);
     const input = container.querySelector('input') as HTMLInputElement;
     expect(input).toHaveAttribute('required');
+  });
+});
+
+describe('ラベルと入力欄の関連付け（アクセシビリティ）', () => {
+  it('Input はラベルから見つけられる', () => {
+    render(<Input label="金額（円）" />);
+    expect(screen.getByLabelText('金額（円）').tagName).toBe('INPUT');
+  });
+
+  it('呼び出し側の id を優先する', () => {
+    render(<Input label="寄附先" id="donation-name" />);
+    expect(screen.getByLabelText('寄附先')).toHaveAttribute('id', 'donation-name');
+  });
+
+  it('同じラベルの Input が複数あっても、それぞれ別の id になる', () => {
+    render(
+      <>
+        <Input label="金額" />
+        <Input label="金額" />
+      </>
+    );
+    const [a, b] = screen.getAllByLabelText('金額');
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('Select もラベルから見つけられる', () => {
+    render(<Select label="種類" options={[{ value: 'a', label: 'A' }]} />);
+    expect(screen.getByLabelText('種類').tagName).toBe('SELECT');
   });
 });

@@ -14,7 +14,8 @@ export type TabType =
   | 'real-estate-income-list' 
   | 'capital-gain' 
   | 'capital-gain-list'
-  | 'depreciation';
+  | 'depreciation'
+  | 'tax-return';
 
 export interface TabItem {
   id: TabType;

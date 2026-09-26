@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -19,12 +19,15 @@ export const Input: React.FC<InputProps> = ({
   className = '',
   type = 'text',
   disabled = false,
+  id,
   ...props
 }) => {
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor={controlId} className="block text-sm font-medium text-gray-700 mb-1">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -36,6 +39,7 @@ export const Input: React.FC<InputProps> = ({
           </div>
         )}
         <input
+          id={controlId}
           type={type}
           className={`
             w-full px-3 py-2 rounded-md border border-gray-300 text-gray-900

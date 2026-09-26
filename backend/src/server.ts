@@ -35,6 +35,7 @@ import rsuRoutes from './routes/rsuRoutes';
 import realEstateRoutes from './routes/realEstateRoutes';
 import realEstateIncomeRoutes from './routes/realEstateIncomeRoutes';
 import realEstateIncomeListRoutes from './routes/realEstateIncomeListRoutes';
+import taxReturnRoutes from './routes/taxReturnRoutes';
 import depreciationRoutes from './routes/depreciationRoutes';
 import taxExemptionRoutes from './routes/taxExemptionRoutes';
 import documentRoutes from './routes/documentRoutes';
@@ -60,6 +61,7 @@ app.use('/api/depreciation', depreciationRoutes);
 app.use('/api/tax-exemption', taxExemptionRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/properties', propertyRoutes);
+app.use('/api/tax-return', taxReturnRoutes);
 
 // エラーハンドリング
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
