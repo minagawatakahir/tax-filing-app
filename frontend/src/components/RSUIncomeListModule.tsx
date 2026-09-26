@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useFiscalYear } from '../contexts/FiscalYearContext';
+import { RateProvenanceWarning, RateSourceBadge } from './RateProvenance';
+import { readApiErrorMessage } from '../utils/apiError';
 
 interface RSUIncomeRecord {
   id: string;
@@ -22,6 +24,9 @@ interface RSUIncomeRecord {
     ttmRate: number;
     totalValueJPY: number;
     taxableIncome: number;
+    ttmSource?: string;
+    ttmRateDate?: string;
+    isSimulated?: boolean;
   }>;
   totalRSUIncome: number;
   createdAt: string;
@@ -101,7 +106,7 @@ const RSUIncomeListModule: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error('PDF出力エラー:', err);
-      alert('PDF出力に失敗しました');
+      alert(await readApiErrorMessage(err, 'PDF出力に失敗しました'));
     }
   };
 
@@ -159,6 +164,8 @@ const RSUIncomeListModule: React.FC = () => {
             </div>
           </div>
 
+          <RateProvenanceWarning calculations={records.flatMap((r) => r.result)} />
+
           {/* 記録一覧 */}
           {records.map((record) => (
             <div
@@ -202,6 +209,9 @@ const RSUIncomeListModule: React.FC = () => {
                       <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">
                         TTMレート
                       </th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">
+                        レートの公示日
+                      </th>
                       <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">
                         JPY評価額
                       </th>
@@ -228,6 +238,9 @@ const RSUIncomeListModule: React.FC = () => {
                         <td className="px-4 py-2 text-sm text-right text-gray-800">
                           ¥{item.ttmRate.toLocaleString()}
                         </td>
+                        <td className="px-4 py-2 text-sm">
+                          <RateSourceBadge calc={item} />
+                        </td>
                         <td className="px-4 py-2 text-sm text-right text-gray-800">
                           ¥{item.totalValueJPY.toLocaleString()}
                         </td>
@@ -239,7 +252,7 @@ const RSUIncomeListModule: React.FC = () => {
                   </tbody>
                   <tfoot className="bg-gray-50">
                     <tr>
-                      <td colSpan={6} className="px-4 py-2 text-right font-semibold text-gray-800">
+                      <td colSpan={7} className="px-4 py-2 text-right font-semibold text-gray-800">
                         合計所得額:
                       </td>
                       <td className="px-4 py-2 text-right font-bold text-blue-700 text-lg">

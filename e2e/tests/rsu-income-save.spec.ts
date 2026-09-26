@@ -132,6 +132,10 @@ test.describe('RSU所得の保存フロー - E2E Test', () => {
       .locator('table', { has: page.getByRole('columnheader', { name: 'TTM' }) })
       .locator('tbody tr');
     await expect(resultRows).toHaveCount(3, { timeout: 15000 });
+
+    // E2E はシミュレーションのレートで動くので、申告に使えないことが画面ではっきりわかる
+    await expect(page.getByText('シミュレーションの為替レートです（申告には使えません）')).toBeVisible();
+    await expect(resultRows.getByTestId('rate-source')).toHaveText(['シミュレーション', 'シミュレーション', 'シミュレーション']);
   });
 
   test('RSU所得管理画面で年度別データを確認できる', async ({ page }) => {

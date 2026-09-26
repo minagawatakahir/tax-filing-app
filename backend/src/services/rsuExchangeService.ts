@@ -1,58 +1,13 @@
-import axios from 'axios';
-import { addDays, format, parse } from 'date-fns';
-import * as fs from 'fs';
-import * as path from 'path';
-
 /**
- * RSU為替自動連携サービス
- * 証券会社APIとの連携、権利確定日TTMの自動取得
+ * RSU の円換算（権利確定日の株価 × TTM）
+ *
+ * TTM は ttmRateService から取得する（三菱UFJ銀行の公示相場。休日は直前の公示日）。
+ * 取得できない日付があれば例外にする。代わりの値（固定値・実勢レートなど）は使わない。
+ * 計算結果には、使ったレートの出どころ・公示日・シミュレーションかどうかを必ず含める。
  */
+import { getTTM, TTMRate, TTMUnavailableError, toDateKey } from './ttmRateService';
 
-// 為替レートAPI（複数のデータソースに対応）
-const EXCHANGE_RATE_API = 'https://api.exchangerate-api.com/v4/latest/USD';
-const HISTORICAL_DATA_CACHE = path.join(__dirname, '../../cache/ttm_rates.json');
-
-// TTMレートキャッシュ（メモリ内）
-let ttmRateCache: Map<string, number> = new Map();
-
-/**
- * ファイルキャッシュの初期化
- * サーバー起動時に呼び出される
- */
-const initializeFileCache = (): void => {
-  try {
-    if (fs.existsSync(HISTORICAL_DATA_CACHE)) {
-      const cachedData = JSON.parse(fs.readFileSync(HISTORICAL_DATA_CACHE, 'utf-8'));
-      Object.entries(cachedData).forEach(([dateKey, rate]) => {
-        ttmRateCache.set(dateKey, rate as number);
-      });
-      console.log(`✅ Loaded ${ttmRateCache.size} cached TTM rates from file`);
-    }
-  } catch (error) {
-    console.warn('⚠️ Failed to load file cache, starting with empty cache:', error);
-  }
-};
-
-/**
- * ファイルキャッシュに保存
- */
-const saveFileCache = (): void => {
-  try {
-    const cacheDir = path.dirname(HISTORICAL_DATA_CACHE);
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
-
-    const cacheData = Object.fromEntries(ttmRateCache);
-    fs.writeFileSync(
-      HISTORICAL_DATA_CACHE,
-      JSON.stringify(cacheData, null, 2),
-      'utf-8'
-    );
-  } catch (error) {
-    console.error('Failed to save TTM rate cache to file:', error);
-  }
-};
+export { TTMUnavailableError } from './ttmRateService';
 
 export interface RSUVestingData {
   vestingDate: Date;
@@ -65,6 +20,8 @@ export interface ExchangeRateData {
   date: Date;
   rate: number; // JPY per USD
   source: string;
+  rateDate: string; // 実際に使った公示日（yyyy-MM-dd）
+  isSimulated: boolean;
 }
 
 export interface RSUTaxCalculation {
@@ -75,328 +32,74 @@ export interface RSUTaxCalculation {
   pricePerShareJPY: number;
   totalValueJPY: number;
   taxableIncomeJPY: number;
+  ttmSource: string; // レートの出どころ
+  ttmRateDate: string; // 実際に使った公示日（休日なら直前の公示日）
+  isSimulated: boolean; // シミュレーションのレートか（true なら申告に使えない）
 }
 
+const toExchangeRateData = (date: Date, ttm: TTMRate): ExchangeRateData => ({
+  date,
+  rate: ttm.rate,
+  source: ttm.source,
+  rateDate: ttm.rateDate,
+  isSimulated: ttm.isSimulated,
+});
+
 /**
- * キャッシュから日付のTTMレートを取得
- * @param date 取得日
- * @returns キャッシュされたレート、またはnull
+ * 指定日のTTM
+ * @throws TTMUnavailableError 取得できない場合
  */
-const getCachedTTMRate = (date: Date): number | null => {
-  const dateKey = format(date, 'yyyy-MM-dd');
-  return ttmRateCache.get(dateKey) || null;
-};
+export const getTTMRate = async (date: Date): Promise<ExchangeRateData> => toExchangeRateData(date, await getTTM(date));
 
 /**
- * キャッシュにTTMレートを保存
- * @param date 日付
- * @param rate レート
- */
-const cacheTTMRate = (date: Date, rate: number): void => {
-  const dateKey = format(date, 'yyyy-MM-dd');
-  ttmRateCache.set(dateKey, rate);
-  saveFileCache(); // ファイルにも保存
-};
-
-/**
- * Open Exchange Rates APIから過去のレートを取得
- * @param date 取得日
- * @returns 為替レート
- */
-const getTTMRateFromOpenExchangeRates = async (date: Date): Promise<number | null> => {
-  try {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const apiKey = process.env.OPEN_EXCHANGE_RATES_API_KEY;
-    
-    if (!apiKey) {
-      console.warn('Open Exchange Rates API key not configured');
-      return null;
-    }
-
-    const response = await axios.get(
-      `https://openexchangerates.org/api/historical/${dateStr}.json`,
-      {
-        params: {
-          app_id: apiKey,
-          symbols: 'JPY',
-          base: 'USD',
-        },
-        timeout: 5000,
-      }
-    );
-
-    if (response.data.rates && response.data.rates.JPY) {
-      return response.data.rates.JPY;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error fetching rate from Open Exchange Rates for ${format(date, 'yyyy-MM-dd')}:`, error);
-    return null;
-  }
-};
-
-/**
- * Fixer APIから過去のレートを取得
- * @param date 取得日
- * @returns 為替レート
- */
-const getTTMRateFromFixer = async (date: Date): Promise<number | null> => {
-  try {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const apiKey = process.env.FIXER_API_KEY;
-    
-    if (!apiKey) {
-      console.warn('Fixer API key not configured');
-      return null;
-    }
-
-    const response = await axios.get('https://api.fixer.io/' + dateStr, {
-      params: {
-        access_key: apiKey,
-        symbols: 'JPY',
-        base: 'USD',
-      },
-      timeout: 5000,
-    });
-
-    if (response.data.rates && response.data.rates.JPY) {
-      return response.data.rates.JPY;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error fetching rate from Fixer for ${format(date, 'yyyy-MM-dd')}:`, error);
-    return null;
-  }
-};
-
-/**
- * 現在のレートをフォールバック取得
- * @returns 現在のUSD/JPYレート
- */
-const getCurrentTTMRate = async (): Promise<number> => {
-  try {
-    const response = await axios.get(EXCHANGE_RATE_API, { timeout: 5000 });
-    
-    if (response.data.rates && response.data.rates.JPY) {
-      return response.data.rates.JPY;
-    }
-    return 150.0; // デフォルトレート
-  } catch (error) {
-    console.error('Error fetching current exchange rate:', error);
-    return 150.0; // デフォルトレート
-  }
-};
-
-/**
- * TTM（電信仲値）レートを取得
- * 日付ごとに異なるレートを取得します
- * @param date 取得日
- * @returns 為替レート
- */
-export const getTTMRate = async (date: Date): Promise<ExchangeRateData> => {
-  try {
-    // 1. キャッシュから確認
-    let rate = getCachedTTMRate(date);
-    let source = 'Cache';
-
-    // 2. キャッシュにない場合、外部APIから取得
-    if (rate === null) {
-      // Open Exchange Rates（優先）
-      rate = await getTTMRateFromOpenExchangeRates(date);
-      if (rate !== null) {
-        source = 'Open Exchange Rates';
-      } else {
-        // Fixer（代替）
-        rate = await getTTMRateFromFixer(date);
-        if (rate !== null) {
-          source = 'Fixer';
-        } else {
-          // 現在のレートをフォールバック
-          rate = await getCurrentTTMRate();
-          source = 'Current Rate (Fallback)';
-        }
-      }
-
-      // キャッシュに保存
-      cacheTTMRate(date, rate);
-    }
-
-    return {
-      date: date,
-      rate: rate,
-      source: source,
-    };
-  } catch (error) {
-    console.error('Error in getTTMRate:', error);
-    // 最後のフォールバック
-    return {
-      date: date,
-      rate: 150.0,
-      source: 'Fallback Rate (Error)',
-    };
-  }
-};
-
-/**
- * デモ用：日付ベースでシミュレートされたTTMレートを生成
- * @param date 日付
- * @returns シミュレートされたレート
- */
-const getSimulatedTTMRate = (date: Date): number => {
-  // 日付からシード値を生成（同じ日付なら同じレートになる）
-  const dateStr = format(date, 'yyyy-MM-dd');
-  let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  
-  // 140円～160円の範囲でシミュレート
-  const minRate = 140;
-  const maxRate = 160;
-  const range = maxRate - minRate;
-  const normalizedHash = Math.abs(hash % 10000) / 10000;
-  
-  return minRate + (normalizedHash * range);
-};
-
-/**
- * 複数日のTTMレートを一括取得（最適化版）
- * キャッシュヒット率を最大化し、API呼び出しを最小限に抑える
- * @param dates 日付配列
- * @returns 為替レートの配列
+ * 複数の日付のTTM（同じ日付は1回だけ取得する）
+ * @throws TTMUnavailableError 1つでも取得できない日付がある場合（どの日付かをまとめて知らせる）
  */
 export const getBatchTTMRates = async (dates: Date[]): Promise<ExchangeRateData[]> => {
-  const useSimulation = process.env.USE_SIMULATED_TTM === 'true';
-  
-  if (useSimulation) {
-    // デモモード：シミュレートされたレート
-    return dates.map(date => ({
-      date: date,
-      rate: getSimulatedTTMRate(date),
-      source: 'Simulated (Demo)',
-    }));
-  }
-
-  // キャッシュミスの日付のみAPIから取得
-  const uncachedDates: Date[] = [];
-  const results: ExchangeRateData[] = [];
-
-  // 1. まずキャッシュから取得を試みる
-  for (const date of dates) {
-    const cachedRate = getCachedTTMRate(date);
-    if (cachedRate !== null) {
-      results.push({
-        date: date,
-        rate: cachedRate,
-        source: 'Cache',
-      });
-    } else {
-      uncachedDates.push(date);
+  const byKey = new Map<string, TTMRate>();
+  const failures: string[] = [];
+  for (const key of Array.from(new Set(dates.map(toDateKey)))) {
+    const date = dates.find((d) => toDateKey(d) === key)!;
+    try {
+      byKey.set(key, await getTTM(date));
+    } catch (error: any) {
+      failures.push(error instanceof TTMUnavailableError ? error.message : `${key}: ${error?.message || error}`);
     }
   }
-
-  // 2. キャッシュミスの日付を並列取得
-  if (uncachedDates.length > 0) {
-    console.log(`Fetching ${uncachedDates.length} uncached TTM rates...`);
-    const uncachedResults = await Promise.all(
-      uncachedDates.map(date => getTTMRate(date))
-    );
-    results.push(...uncachedResults);
+  if (failures.length > 0) {
+    throw new TTMUnavailableError(failures.length === 1 ? 'この日付' : `${failures.length}件の日付`, failures.join(' / '));
   }
-
-  // 3. 元の日付の順序で並び替え
-  const dateMap = new Map<string, ExchangeRateData>();
-  results.forEach(result => {
-    const key = format(result.date, 'yyyy-MM-dd');
-    dateMap.set(key, result);
-  });
-
-  return dates.map(date => {
-    const key = format(date, 'yyyy-MM-dd');
-    return dateMap.get(key)!;
-  });
+  return dates.map((date) => toExchangeRateData(date, byKey.get(toDateKey(date))!));
 };
 
-/**
- * RSU権利確定時の税務計算
- * @param vestingData RSU権利確定データ
- * @returns 税務計算結果
- */
-export const calculateRSUTax = async (
-  vestingData: RSUVestingData
-): Promise<RSUTaxCalculation> => {
-  // 権利確定日のTTMレートを取得
-  const exchangeRateData = await getTTMRate(vestingData.vestingDate);
-  
-  // 円貨換算
-  const pricePerShareJPY = vestingData.pricePerShare * exchangeRateData.rate;
-  const totalValueJPY = pricePerShareJPY * vestingData.shares;
-  
-  // 課税所得（給与所得として計算）
-  const taxableIncomeJPY = totalValueJPY;
-  
+const toCalculation = (data: RSUVestingData, rate: ExchangeRateData): RSUTaxCalculation => {
+  const pricePerShareJPY = data.pricePerShare * rate.rate;
+  const totalValueJPY = pricePerShareJPY * data.shares;
   return {
-    vestingDate: vestingData.vestingDate,
-    shares: vestingData.shares,
-    pricePerShareUSD: vestingData.pricePerShare,
-    exchangeRate: exchangeRateData.rate,
-    pricePerShareJPY: pricePerShareJPY,
-    totalValueJPY: totalValueJPY,
-    taxableIncomeJPY: taxableIncomeJPY,
+    vestingDate: data.vestingDate,
+    shares: data.shares,
+    pricePerShareUSD: data.pricePerShare,
+    exchangeRate: rate.rate,
+    pricePerShareJPY,
+    totalValueJPY,
+    taxableIncomeJPY: totalValueJPY,
+    ttmSource: rate.source,
+    ttmRateDate: rate.rateDate,
+    isSimulated: rate.isSimulated,
   };
 };
 
-/**
- * 複数のRSU権利確定の一括計算
- * 複数の日付に対して効率的にTTMレートを取得します
- * @param vestingDataList RSU権利確定データの配列
- * @returns 税務計算結果の配列
- */
-export const calculateBatchRSUTax = async (
-  vestingDataList: RSUVestingData[]
-): Promise<RSUTaxCalculation[]> => {
-  // 1. 全ての権利確定日を抽出
-  const vestingDates = vestingDataList.map(data => data.vestingDate);
-  
-  // 2. 全てのTTMレートを一括取得（シミュレーションまたはAPIから）
-  const exchangeRates = await getBatchTTMRates(vestingDates);
-  
-  // 3. 日付をキーにした為替レートマップを作成
-  const rateMap = new Map<string, number>();
-  exchangeRates.forEach(rateData => {
-    const dateKey = format(rateData.date, 'yyyy-MM-dd');
-    rateMap.set(dateKey, rateData.rate);
-  });
-  
-  // 4. 各RSUデータに対して計算を実行
-  const calculations: RSUTaxCalculation[] = vestingDataList.map(data => {
-    const dateKey = format(data.vestingDate, 'yyyy-MM-dd');
-    const exchangeRate = rateMap.get(dateKey) || 150.0; // フォールバック
-    
-    const pricePerShareJPY = data.pricePerShare * exchangeRate;
-    const totalValueJPY = pricePerShareJPY * data.shares;
-    
-    return {
-      vestingDate: data.vestingDate,
-      shares: data.shares,
-      pricePerShareUSD: data.pricePerShare,
-      exchangeRate: exchangeRate,
-      pricePerShareJPY: pricePerShareJPY,
-      totalValueJPY: totalValueJPY,
-      taxableIncomeJPY: totalValueJPY,
-    };
-  });
-  
-  return calculations;
+/** 1件の権利確定の円換算 */
+export const calculateRSUTax = async (vestingData: RSUVestingData): Promise<RSUTaxCalculation> =>
+  toCalculation(vestingData, await getTTMRate(vestingData.vestingDate));
+
+/** 複数の権利確定の円換算 */
+export const calculateBatchRSUTax = async (vestingDataList: RSUVestingData[]): Promise<RSUTaxCalculation[]> => {
+  const rates = await getBatchTTMRates(vestingDataList.map((d) => d.vestingDate));
+  return vestingDataList.map((data, i) => toCalculation(data, rates[i]));
 };
 
-/**
- * 年間のRSU収入集計
- * @param vestingDataList RSU権利確定データの配列
- * @param year 対象年度
- * @returns 年間集計結果
- */
+/** 年間のRSU収入の集計（対象年の権利確定だけ） */
 export const aggregateAnnualRSUIncome = async (
   vestingDataList: RSUVestingData[],
   year: number
@@ -407,30 +110,23 @@ export const aggregateAnnualRSUIncome = async (
   vestingCount: number;
   calculations: RSUTaxCalculation[];
 }> => {
-  // 対象年度のデータのみフィルタ
-  const yearData = vestingDataList.filter(
-    data => data.vestingDate.getFullYear() === year
-  );
-  
-  // 一括計算
+  const yearData = vestingDataList.filter((data) => data.vestingDate.getFullYear() === year);
   const calculations = await calculateBatchRSUTax(yearData);
-  
-  // 集計
-  const totalShares = calculations.reduce((sum, calc) => sum + calc.shares, 0);
-  const totalIncomeJPY = calculations.reduce((sum, calc) => sum + calc.totalValueJPY, 0);
-  
   return {
     year,
-    totalShares,
-    totalIncomeJPY,
+    totalShares: calculations.reduce((sum, c) => sum + c.shares, 0),
+    totalIncomeJPY: calculations.reduce((sum, c) => sum + c.totalValueJPY, 0),
     vestingCount: calculations.length,
     calculations,
   };
 };
 
 /**
- * TX-22: キャッシュ初期化（サーバー起動時に呼び出す）
+ * サーバー起動時の処理（互換のため残す）
+ * キャッシュは必要になったときに ttmRateService が読み込む。シミュレーションが有効なら警告する。
  */
 export const initializeTTMRateCache = (): void => {
-  initializeFileCache();
+  if (process.env.USE_SIMULATED_TTM === 'true') {
+    console.warn('⚠️  USE_SIMULATED_TTM=true: RSU の為替レートはシミュレーション（架空の値）です。申告には使えません。');
+  }
 };

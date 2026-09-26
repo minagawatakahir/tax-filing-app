@@ -25,6 +25,9 @@ export interface IRSUIncomeRecord extends Document {
     ttmRate: number;
     totalValueJPY: number;
     taxableIncome: number;
+    ttmSource?: string; // 為替レートの出どころ（古い記録にはない）
+    ttmRateDate?: string; // 実際に使った公示日（yyyy-MM-dd）
+    isSimulated?: boolean; // シミュレーションのレートか
   }>;
   // 年間合計
   totalRSUIncome: number;
@@ -55,6 +58,9 @@ const RSUIncomeRecordSchema = new Schema<IRSUIncomeRecord>(
         ttmRate: { type: Number, required: true },
         totalValueJPY: { type: Number, required: true },
         taxableIncome: { type: Number, required: true },
+        ttmSource: { type: String },
+        ttmRateDate: { type: String },
+        isSimulated: { type: Boolean },
       },
     ],
     totalRSUIncome: { type: Number, required: true },
